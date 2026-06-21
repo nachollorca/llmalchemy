@@ -1,5 +1,7 @@
 """Unit tests for ``agent.py`` helpers (no loop / no LM)."""
 
+from typing import Any, cast
+
 import pytest
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -37,8 +39,9 @@ def test_build_output_schema_preserves_base_fields():
         tag: str = ""
 
     schema = _build_output_schema(Ext)
-    instance = schema(tag="t", message="m", code="c")
-    assert instance.tag == "t"
+    instance = schema.model_validate({"tag": "t", "message": "m", "code": "c"})
+    dumped = instance.model_dump()
+    assert dumped["tag"] == "t"
     assert instance.message == "m"
     assert instance.code == "c"
 
@@ -92,7 +95,7 @@ def test_init_namespace_second_call_refreshes_session(base, seeded_session):
     _init_namespace(state, base, [])
     # Simulate a user-side db swap between runs.
     new_session = object()
-    state.session = new_session  # type: ignore[assignment]
+    state.session = cast(Any, new_session)
     _init_namespace(state, base, [])
     assert state.namespace["session"] is new_session
 
