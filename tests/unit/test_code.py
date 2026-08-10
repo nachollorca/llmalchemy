@@ -54,13 +54,15 @@ def test_validate_rejects_non_whitelisted_import():
 
 def test_execute_captures_stdout():
     ns: dict = {}
-    out = execute(source="print('hello')", namespace=ns)
+    out, failed = execute(source="print('hello')", namespace=ns)
     assert "hello" in out
+    assert failed is False
 
 
 def test_execute_returns_message_when_no_stdout():
-    out = execute(source="x = 1", namespace={})
+    out, failed = execute(source="x = 1", namespace={})
     assert "no stdout" in out.lower()
+    assert failed is False
 
 
 def test_execute_persists_namespace_bindings():
@@ -70,7 +72,8 @@ def test_execute_persists_namespace_bindings():
 
 
 def test_execute_returns_traceback_on_exception():
-    out = execute(source="raise ValueError('boom')", namespace={})
+    out, failed = execute(source="raise ValueError('boom')", namespace={})
     assert "ValueError" in out
     assert "boom" in out
     assert "Traceback" in out
+    assert failed is True

@@ -110,6 +110,57 @@ def test_max_loops_emits_exceeded(base, state, fake_llm, monkeypatch):
     assert signals[-1] == Signal.EXCEEDED
 
 
+# -- rollback on failure ----------------------------------------------
+
+
+def _exec_results(events):
+    return [
+        m.content
+        for m in _messages(events)
+        if isinstance(m, UserMessage) and "Execution result" in m.content
+    ]
+
+
+def test_failed_cell_rolls_back_so_next_cell_works(base, state, author_cls, fake_llm):
+    fake = fake_llm()
+    # Partial flush, then a NOT NULL violation on the second flush.
+    fake.reply(
+        code=(
+            "session.add(Author(name='ghost')); session.flush();"
+            " session.add(Book(title=None, author_id=1)); session.flush()"
+        )
+    )
+    fake.reply(code="print('authors:', session.query(Author).count())")
+    fake.reply(message="done")
+
+    state.messages.append(UserMessage("break it, then query"))
+    events = list(run(state=state, base=base, model="fake"))
+
+    failure, recovery = _exec_results(events)
+    assert "IntegrityError" in failure
+    # The follow-up cell queries fine: no PendingRollbackError.
+    assert "PendingRollbackError" not in recovery
+    assert "authors: 0" in recovery
+    # Rows added by the failed cell are gone.
+    assert state.session.query(author_cls).count() == 0
+
+
+def test_successful_cell_keeps_uncommitted_work_pending(base, state, author_cls, fake_llm):
+    fake = fake_llm()
+    fake.reply(code="session.add(Author(name='pending'))")  # no commit
+    fake.reply(code="print('authors:', session.query(Author).count())")
+    fake.reply(message="done")
+
+    state.messages.append(UserMessage("add without committing"))
+    events = list(run(state=state, base=base, model="fake"))
+
+    _, second = _exec_results(events)
+    assert "authors: 1" in second
+    # Still uncommitted: a rollback now discards it (no over-eager rollback happened).
+    state.session.rollback()
+    assert state.session.query(author_cls).count() == 0
+
+
 # -- tools + extensions + persistence --------------------------------
 
 

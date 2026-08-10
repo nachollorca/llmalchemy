@@ -6,6 +6,7 @@ You can interact with the database using Python code and SQLAlchemy.
 - **Persistence**: The Python namespace is persistent. Imports and variables carry over between cells.
 - **Efficiency**: Keep `print()` statements concise. Avoid redundant imports or session initialization.
 - **Iteration**: Use the execution output (sent as an automatic user message) to decide if you need to run more code or provide a final answer.
+- **Failures**: If a cell raises, the session is rolled back: uncommitted work from that cell is gone and must be redone.
 {% if TOOLS %}- **Tools**: Several tools are available in your namespace. Use `print(disclose(name))` to discover a tool's full signature and docstring before calling it.{% endif %}
 
 # Database Schema

@@ -123,7 +123,7 @@ def validate(source: str, allowed_imports: list[str]) -> str:
     return reason
 
 
-def execute(source: str, namespace: dict) -> str:
+def execute(source: str, namespace: dict) -> tuple[str, bool]:
     """Execute *source* code requested by the Agent inside *namespace*.
 
     Runs synchronously in the calling thread.  There is no timeout guard:
@@ -137,13 +137,16 @@ def execute(source: str, namespace: dict) -> str:
             persist in *namespace* after this call returns.
 
     Returns:
-        A string with stdout output, a traceback, or a status message.
+        ``(output, failed)``: stdout output or a status message with
+        ``failed=False``, or the formatted traceback with ``failed=True``.
+        Callers need the flag to react to failures (e.g. rolling back the
+        session) without string-sniffing the output.
     """
     buf = io.StringIO()
     try:
         compiled = compile(source, "<agent>", "exec")
         with contextlib.redirect_stdout(buf):
             exec(compiled, namespace)
-        return buf.getvalue() or "Code executed successfully but produced no stdout."
+        return buf.getvalue() or "Code executed successfully but produced no stdout.", False
     except Exception:
-        return traceback.format_exc()
+        return traceback.format_exc(), True

@@ -241,7 +241,12 @@ def run(
             continue
 
         yield SignalEvent(Signal.EXECUTION)
-        result = execute(source=code, namespace=state.namespace)
+        result, failed = execute(source=code, namespace=state.namespace)
+        # A failed cell may leave the session needing a rollback; every later
+        # use would raise `PendingRollbackError`. Roll back only on failure, so
+        # uncommitted work from successful cells stays pending.
+        if failed and state.session is not None and state.session.in_transaction():
+            state.session.rollback()
         message = UserMessage(f"Execution result:\n{result}")
         state.messages.append(message)
         yield MessageEvent(message)
