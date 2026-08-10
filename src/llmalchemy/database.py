@@ -2,8 +2,37 @@
 
 import weakref
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session
+
+
+def _enable_foreign_keys(dbapi_connection, _record) -> None:
+    """Turn on FK enforcement, which SQLite leaves off on every new connection."""
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
+def new_session(base: type[DeclarativeBase]) -> Session:
+    """Create a session on a fresh in-memory SQLite database with *base*'s schema.
+
+    Foreign keys are enforced, so cascades and dangling references behave like
+    they would on the consumer's real database instead of being ignored.
+
+    Args:
+        base: The declarative base whose metadata describes the schema.
+
+    Returns:
+        A ready-to-use SQLAlchemy ``Session``.
+    """
+    engine = create_engine("sqlite://")
+    event.listen(engine, "connect", _enable_foreign_keys)
+    base.metadata.create_all(engine)
+    session = Session(engine)
+    # Ensure the underlying sqlite3.Connection is closed when the session
+    # becomes unreachable, avoiding Python 3.13 ResourceWarnings.
+    weakref.finalize(session, engine.dispose)
+    return session
 
 
 def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Session:
@@ -19,12 +48,7 @@ def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Ses
     Returns:
         A ready-to-use SQLAlchemy ``Session`` bound to the in-memory database.
     """
-    engine = create_engine("sqlite://")
-    base.metadata.create_all(engine)
-    session = Session(engine)
-    # Ensure the underlying sqlite3.Connection is closed when the session
-    # becomes unreachable, avoiding Python 3.13 ResourceWarnings.
-    weakref.finalize(session, engine.dispose)
+    session = new_session(base)
 
     # Build a lookup from table name to mapped class
     cls_by_table: dict[str, type] = {}

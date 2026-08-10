@@ -1,6 +1,5 @@
 """Contains the agentic loop and related utils."""
 
-import weakref
 from collections.abc import Generator, Iterator
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -9,11 +8,11 @@ from typing import Any, cast
 
 from lmdk import Message, UserMessage, complete
 from pydantic import BaseModel, Field, create_model
-from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session
 
 from .code import execute, validate
 from .context import render
+from .database import new_session
 from .tools import Tool, make_disclose_fn
 
 MAX_LOOPS = 20
@@ -126,12 +125,7 @@ def _build_output_schema(output_extensions: type[BaseModel] | None) -> type[Outp
 def _init_session(state: State, base: type[DeclarativeBase]) -> None:
     """Initialize the SQLAlchemy session when missing (first call)."""
     if state.session is None:
-        engine = create_engine("sqlite://")
-        base.metadata.create_all(engine)
-        state.session = Session(engine)
-        # Dispose the engine (and close its pooled sqlite3.Connection) when
-        # the session is garbage-collected, to avoid ResourceWarnings.
-        weakref.finalize(state.session, engine.dispose)
+        state.session = new_session(base)
 
 
 def _init_namespace(
