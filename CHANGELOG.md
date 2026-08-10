@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v1.4.2 (2026-08-10)
+
+### Bug Fixes
+
+- Enforce SQLite foreign keys on the sessions llmalchemy creates
+  ([`7d39fbf`](https://github.com/nachollorca/llmalchemy/commit/7d39fbf1bdfce1f7ed4ed25d8e8acd2d2dd0cf21))
+
+### Continuous Integration
+
+- Pass --frozen to all uv run recipes
+  ([`e15ec5a`](https://github.com/nachollorca/llmalchemy/commit/e15ec5a1cabedba1820e97007ad4814b8500c123))
+
+- Pass specific file paths to prek
+  ([`11e40e3`](https://github.com/nachollorca/llmalchemy/commit/11e40e38f171c1dad226d83de33d4e521b10de59))
+
+### Testing
+
+- Enforce typing and linting in tests too
+  ([`8438246`](https://github.com/nachollorca/llmalchemy/commit/84382467ee8ad2dc78dc85f70755aefae29a992b))
+
+
 ## v1.4.1 (2026-05-01)
 
 ### Bug Fixes
