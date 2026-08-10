@@ -18,7 +18,7 @@ class Author(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(120))
 
-    books: Mapped[list["Book"]] = relationship(back_populates="author")
+    books: Mapped[list["Book"]] = relationship(back_populates="author", passive_deletes=True)
 
 
 class Book(Base):
@@ -28,7 +28,7 @@ class Book(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(200))
-    author_id: Mapped[int] = mapped_column(ForeignKey("authors.id"))
+    author_id: Mapped[int] = mapped_column(ForeignKey("authors.id", ondelete="CASCADE"))
 
     author: Mapped["Author"] = relationship(back_populates="books")
 
