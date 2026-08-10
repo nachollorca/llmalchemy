@@ -14,7 +14,9 @@ from llmalchemy.agent import (
     _init_session,
     run,
 )
+from llmalchemy.code import execute, validate
 from llmalchemy.tools import Tool
+from tests.fixtures.advanced import Manager, team_members
 
 # -- _build_output_schema ---------------------------------------------
 
@@ -98,6 +100,35 @@ def test_init_namespace_second_call_refreshes_session(base, seeded_session):
     state.session = cast(Any, new_session)
     _init_namespace(state, base, [])
     assert state.namespace["session"] is new_session
+
+
+def test_init_namespace_injects_inherited_classes_and_junctions(advanced_base):
+    state = State()
+    _init_session(state, advanced_base)
+    descriptions = _init_namespace(state, advanced_base, [])
+
+    # ``Manager`` is a grandchild of the base, invisible to ``__subclasses__()``.
+    assert state.namespace["Manager"] is Manager
+    # Junctions are bound to their Python variable name, not their table name.
+    assert state.namespace["team_members"] is team_members
+    assert "memberships" not in state.namespace
+    assert any("Manager" in name for name in descriptions)
+    assert any("team_members" in name for name in descriptions)
+
+
+def test_agent_code_can_insert_into_junction(advanced_base):
+    state = State()
+    _init_session(state, advanced_base)
+    _init_namespace(state, advanced_base, [])
+    source = (
+        "from sqlalchemy import insert, select\n"
+        "session.add_all([Manager(name='Ada'), Team(name='Core')])\n"
+        "session.flush()\n"
+        "session.execute(insert(team_members), [{'employee_id': 1, 'team_id': 1}])\n"
+        "print(session.execute(select(team_members)).all())\n"
+    )
+    assert validate(source=source, allowed_imports=["sqlalchemy"]) == ""
+    assert execute(source=source, namespace=state.namespace).strip() == "[(1, 1)]"
 
 
 # -- run() early-exits ------------------------------------------------

@@ -1,6 +1,7 @@
 """Tests for the serialize / deserialize round-trip."""
 
 from llmalchemy.database import deserialize, serialize
+from tests.fixtures.advanced import Manager
 
 
 def test_serialize_seeded_session(base, seeded_session):
@@ -32,3 +33,18 @@ def test_deserialize_ignores_unknown_tables(base):
 
 def test_serialize_empty_session(base, session):
     assert serialize(session=session, base=base) == {"authors": [], "books": []}
+
+
+def test_roundtrip_single_table_inheritance(advanced_base):
+    session = deserialize(data={}, base=advanced_base)
+    session.add(Manager(name="Ada"))
+    session.commit()
+
+    data = serialize(session=session, base=advanced_base)
+    # One entry per table: ``Manager`` shares ``Employee``'s table, no duplicates.
+    assert set(data) == {"employees", "teams"}
+    assert data["employees"] == [{"id": 1, "name": "Ada", "role": "manager"}]
+
+    restored = deserialize(data=data, base=advanced_base)
+    assert serialize(session=restored, base=advanced_base) == data
+    assert restored.query(Manager).count() == 1

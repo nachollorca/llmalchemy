@@ -8,6 +8,7 @@ from pathlib import Path
 from lmdk import render_template
 from sqlalchemy.orm import DeclarativeBase
 
+from .database import mapped_classes
 from .tools import Tool
 
 _TEMPLATE_PATH = Path(__file__).parent / "prompt.jinja"
@@ -26,7 +27,7 @@ def _render_schema_source(base: type[DeclarativeBase]) -> str:
     registered under *base*.  The sources are concatenated separated by
     blank lines.
     """
-    sources = [inspect.getsource(cls) for cls in base.__subclasses__()]
+    sources = [inspect.getsource(cls) for cls in mapped_classes(base)]
     return "\n\n".join(sources)
 
 
