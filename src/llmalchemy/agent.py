@@ -7,7 +7,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
 
-from lmdk import Message, UserMessage, complete
+from lmdk import Message, ThinkingEffort, UserMessage, complete
 from pydantic import BaseModel, Field, create_model
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session
@@ -81,6 +81,7 @@ def _complete(
     model: str,
     system_instruction: str,
     output_schema: type[Output],
+    thinking_effort: ThinkingEffort,
 ) -> Generator[Event, None, Output]:
     """Single LM call: append the response, yield signals and the message, return parsed output."""
     yield SignalEvent(Signal.COMPLETION)
@@ -89,6 +90,7 @@ def _complete(
         prompt=state.messages,
         system_instruction=system_instruction,
         output_schema=output_schema,
+        thinking_effort=thinking_effort,
     )
     state.messages.append(response.message)
     yield MessageEvent(response.message)
@@ -180,11 +182,11 @@ def run(
     state: State,
     base: type[DeclarativeBase],
     model: str,
+    thinking_effort: ThinkingEffort = "high",
     tools: list[Tool] | None = None,
     allowed_imports: list[str] | None = None,
     prompt_template: str | Path | None = None,
     output_extensions: type[BaseModel] | None = None,
-    thinking: bool = False,
 ) -> Iterator[Event]:
     """Execute the agentic loop.
 
@@ -198,7 +200,7 @@ def run(
         tools: User-provided tools the agent can call in generated code.
         allowed_imports: Any vanilla module or third-party package that the agent can use.
         output_extensions: Optional Pydantic model to force in the LM structured output.
-        thinking: Level of thinking for provider-native reasoning tokens. Not implemented yet.
+        thinking_effort: Level of thinking for provider-native reasoning tokens.
         prompt_template: Custom jinja system prompt. Should contain placeholders for:
             - ``SCHEMA``: used to show agent the source code of ORM classes
             - ``SYMBOLS``: used to show ageent all pre-loaded namespace symbols.
@@ -207,9 +209,6 @@ def run(
     Yields:
         ``Event``: system instruction, loop signals, and conversation messages.
     """
-    if thinking:
-        raise NotImplementedError("Native provider thinking is not yet wired through lmdk.")
-
     # Initialize everything
     tools = tools or []
     allowed_imports = allowed_imports or []
@@ -220,7 +219,7 @@ def run(
     yield SystemInstructionEvent(system_instruction)
 
     # First call to the model
-    output = yield from _complete(state, model, system_instruction, output_schema)
+    output = yield from _complete(state, model, system_instruction, output_schema, thinking_effort)
     code = output.code
 
     # Loop until model is over with the task
@@ -236,7 +235,9 @@ def run(
             message = UserMessage(f"Code rejected: {reason}")
             state.messages.append(message)
             yield MessageEvent(message)
-            output = yield from _complete(state, model, system_instruction, output_schema)
+            output = yield from _complete(
+                state, model, system_instruction, output_schema, thinking_effort
+            )
             code = output.code
             continue
 
@@ -245,5 +246,7 @@ def run(
         message = UserMessage(f"Execution result:\n{result}")
         state.messages.append(message)
         yield MessageEvent(message)
-        output = yield from _complete(state, model, system_instruction, output_schema)
+        output = yield from _complete(
+            state, model, system_instruction, output_schema, thinking_effort
+        )
         code = output.code
