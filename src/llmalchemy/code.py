@@ -130,6 +130,12 @@ def execute(source: str, namespace: dict) -> str:
     the model could theoretically generate an infinite loop that we cannot
     catch at the AST validation level.
 
+    If the code raises, the ``session`` bound in *namespace* is rolled back:
+    a half-executed block leaves pending writes (or a session that refuses
+    further work until rollback), and the next block's ``commit()`` would
+    otherwise persist them silently.  Anything the failed block committed
+    before raising stands — rollback only discards the open transaction.
+
     Args:
         source: Python/SQLAlchemy source code produced by the model.
         namespace: Dict of python symbols available during execution.
@@ -146,4 +152,6 @@ def execute(source: str, namespace: dict) -> str:
             exec(compiled, namespace)
         return buf.getvalue() or "Code executed successfully but produced no stdout."
     except Exception:
+        if session := namespace.get("session"):
+            session.rollback()
         return traceback.format_exc()

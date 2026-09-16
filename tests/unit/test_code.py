@@ -74,3 +74,23 @@ def test_execute_returns_traceback_on_exception():
     assert "ValueError" in out
     assert "boom" in out
     assert "Traceback" in out
+
+
+def test_execute_rolls_back_session_on_exception(session, author_cls):
+    ns = {"session": session, "Author": author_cls}
+    out = execute(
+        source="session.add(Author(name='ghost'))\nraise ValueError('boom')", namespace=ns
+    )
+    assert "boom" in out
+    # The pending insert is gone, and the session is usable again.
+    session.commit()
+    assert session.query(author_cls).count() == 0
+
+
+def test_execute_keeps_committed_work_on_later_exception(session, author_cls):
+    ns = {"session": session, "Author": author_cls}
+    execute(
+        source="session.add(Author(name='kept'))\nsession.commit()\nraise ValueError('boom')",
+        namespace=ns,
+    )
+    assert session.query(author_cls).count() == 1
