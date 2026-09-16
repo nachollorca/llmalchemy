@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.0 (2026-09-16)
+
+### Features
+
+- **core**: Wire up lmdk native thinking
+  ([`d56b65f`](https://github.com/nachollorca/llmalchemy/commit/d56b65f309c75ae13baafc9ce3a9f5bc0d2b2f6a))
+
+
 ## v1.4.2 (2026-08-10)
 
 ### Bug Fixes
