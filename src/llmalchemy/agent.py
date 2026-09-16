@@ -70,7 +70,7 @@ class MessageEvent(Event):
 
 @dataclass(frozen=True)
 class SystemInstructionEvent(Event):
-    """The system instruction sent to the model."""
+    """The system instruction sent to the model (built with the context inside each call)."""
 
     content: str
 
@@ -225,6 +225,7 @@ def run(
         loops += 1
 
         yield SignalEvent(Signal.VALIDATION)
+        # ``code::validate()`` returns only if the code is not valid -> we show to the LM and retry
         if reason := validate(source=code, allowed_imports=allowed_imports):
             message = UserMessage(f"Code rejected: {reason}")
             state.messages.append(message)
@@ -235,6 +236,7 @@ def run(
             code = output.code
             continue
 
+        # If the code is valid, we just execute it
         yield SignalEvent(Signal.EXECUTION)
         result = execute(source=code, namespace=state.namespace)
         message = UserMessage(f"Execution result:\n{result}")
