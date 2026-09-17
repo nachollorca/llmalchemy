@@ -7,6 +7,9 @@ You can interact with the database using Python code and SQLAlchemy.
 - **Efficiency**: Keep `print()` statements concise. Avoid redundant imports or session initialization.
 - **Iteration**: Use the execution output (sent as an automatic user message) to decide if you need to run more code or provide a final answer.
 {% if TOOLS %}- **Tools**: Several tools are available in your namespace. Use `print(disclose(name))` to discover a tool's full signature and docstring before calling it.{% endif %}
+- **Transactions**: the SQLAlchemy `session` is also shared by every cell, nothing is committed or rolled back for you.
+  - Uncommitted work piles up across cells.
+  - A code execution that raises halfway leaves the part that already ran pending.
 
 # Database Schema
 ```python

@@ -65,6 +65,36 @@ def new_session(base: type[DeclarativeBase]) -> Session:
     return session
 
 
+def session_status(session: Session | None) -> str:
+    """Summarize uncommitted session state in one line, empty when there is nothing to report.
+
+    Shown to the agent after every code execution so that the transactional
+    state, otherwise invisible unless printed, is observable. Reading
+    ``new``/``dirty``/``deleted`` never triggers a flush.
+
+    Args:
+        session: The active session, or ``None`` before initialization.
+
+    Returns:
+        A bracketed status line, or ``""`` when the session is clean.
+    """
+    if session is None:
+        return ""
+    # `is_active` is False only when a failed flush deactivated the transaction.
+    if not session.is_active:
+        return "[session: NEEDS ROLLBACK, transaction dead until session.rollback()]"
+    counts = [
+        f"{len(collection)} {label}"
+        for collection, label in (
+            (session.new, "pending"),
+            (session.dirty, "modified"),
+            (session.deleted, "deleted"),
+        )
+        if collection
+    ]
+    return f"[session: {', '.join(counts)}, uncommitted]" if counts else ""
+
+
 def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Session:
     """Unpack a JSON-serialised database state into an SQLAlchemy session.
 

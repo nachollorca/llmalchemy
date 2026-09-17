@@ -12,7 +12,7 @@ from sqlalchemy.orm import DeclarativeBase, Session
 
 from .code import execute, validate
 from .context import render
-from .database import association_tables, mapped_classes, new_session
+from .database import association_tables, mapped_classes, new_session, session_status
 from .tools import Tool, make_disclose_fn
 
 MAX_LOOPS = 20
@@ -246,7 +246,8 @@ def run(
 
         yield SignalEvent(Signal.EXECUTION)
         result = execute(source=code, namespace=state.namespace)
-        message = UserMessage(f"Execution result:\n{result}")
+        parts = [f"Execution result:\n{result.strip()}", session_status(state.session)]
+        message = UserMessage("\n".join(part for part in parts if part))
         state.messages.append(message)
         yield MessageEvent(message)
         output = yield from _complete(
