@@ -12,7 +12,7 @@ from sqlalchemy.orm import DeclarativeBase, Session
 
 from .code import execute, validate
 from .context import render
-from .database import new_session
+from .database import association_tables, mapped_classes, new_session
 from .tools import Tool, make_disclose_fn
 
 MAX_LOOPS = 20
@@ -152,12 +152,21 @@ def _init_namespace(
     state.namespace["session"] = state.session
     descriptions["session"] = "a `sqlalchemy.orm.Session` connected to the database."
 
-    orm_classes = base.__subclasses__()
+    orm_classes = mapped_classes(base)
     for cls in orm_classes:
         state.namespace[cls.__name__] = cls
     if orm_classes:
         names = ", ".join(cls.__name__ for cls in orm_classes)
         descriptions[names] = "ORM model classes (see schema above)."
+
+    tables = association_tables(base)
+    state.namespace.update(tables)
+    if tables:
+        names = ", ".join(tables)
+        descriptions[names] = (
+            "`sqlalchemy.Table` association objects for many-to-many junctions,"
+            " usable directly (e.g. `session.execute(insert(table), rows)`)."
+        )
 
     for t in tools:
         state.namespace[t.name] = t.fn

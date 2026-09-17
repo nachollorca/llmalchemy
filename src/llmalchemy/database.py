@@ -1,9 +1,39 @@
 """Contains the utilities that access or modify the database."""
 
+import sys
 import weakref
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import Table, create_engine, event, insert, select
 from sqlalchemy.orm import DeclarativeBase, Session
+
+
+def mapped_classes(base: type[DeclarativeBase]) -> list[type[DeclarativeBase]]:
+    """Return every class mapped under *base*, at any inheritance depth.
+
+    ``base.__subclasses__()`` yields direct subclasses only, so the mapped
+    classes of inheritance hierarchies (``class Manager(Employee)``) are
+    missed.
+    """
+    return sorted((m.class_ for m in base.registry.mappers), key=lambda cls: cls.__name__)
+
+
+def association_tables(base: type[DeclarativeBase]) -> dict[str, Table]:
+    """Return ``{name: Table}`` for every table of ``base`` with no mapped class.
+
+    Those are the ``Table(...)`` M:N junctions. The name is the Python variable
+    the table is bound to in the module declaring *base*, falling back to the
+    table name.
+    """
+    mapped = {table.name for m in base.registry.mappers for table in m.tables}
+    module = sys.modules.get(base.__module__)
+    # ponytail: only the module declaring `base` is scanned for variable names;
+    # junctions declared elsewhere fall back to their table name.
+    variables = {id(v): k for k, v in vars(module).items()} if module else {}
+    return {
+        variables.get(id(table), table.name): table
+        for table in base.metadata.tables.values()
+        if table.name not in mapped
+    }
 
 
 def _enable_foreign_keys(dbapi_connection, _record) -> None:
@@ -50,25 +80,17 @@ def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Ses
     """
     session = new_session(base)
 
-    # Build a lookup from table name to mapped class
-    cls_by_table: dict[str, type] = {}
-    for cls in base.__subclasses__():
-        table_name = cls.__tablename__ if hasattr(cls, "__tablename__") else cls.__table__.name
-        cls_by_table[table_name] = cls
-
-    for table_name, rows in data.items():
-        cls = cls_by_table.get(table_name)
-        if cls is None:
-            continue
-        for row in rows:
-            session.add(cls(**row))
+    for table in base.metadata.sorted_tables:
+        rows = data.get(table.name)
+        if rows:
+            session.execute(insert(table), rows)
 
     session.commit()
     return session
 
 
 def serialize(session: Session, base: type[DeclarativeBase]) -> dict[str, list[dict]]:
-    """Freeze the current database state into a JSON-serialisable dict.
+    """Freeze the current database state into a JSON-serializable dict.
 
     Args:
         session: The active session to read from.
@@ -77,10 +99,11 @@ def serialize(session: Session, base: type[DeclarativeBase]) -> dict[str, list[d
     Returns:
         ``{table_name: [row_dict, ...]}`` for every table in the schema.
     """
+    # Snapshot at the table level: classes are not tables. Single-table
+    # inheritance would duplicate rows if walked per class, and joined-table
+    # inheritance would drop the subclass table entirely.
     result: dict[str, list[dict]] = {}
-    for cls in base.__subclasses__():
-        table_name = cls.__tablename__ if hasattr(cls, "__tablename__") else cls.__table__.name
-        columns = [c.key for c in cls.__table__.columns]
-        rows = session.query(cls).all()
-        result[table_name] = [{col: getattr(row, col) for col in columns} for row in rows]
+    for table in base.metadata.sorted_tables:
+        rows = session.execute(select(table)).all()
+        result[table.name] = [dict(row._mapping) for row in rows]
     return result

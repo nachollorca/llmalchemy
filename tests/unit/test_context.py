@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from llmalchemy.agent import State, _init_namespace
 from llmalchemy.context import LLMAlchemyPromptWarning, render
 
 _MINIMAL_TEMPLATE = "SCHEMA:\n{{ SCHEMA }}\nSYMBOLS:\n{{ SYMBOLS }}\nTOOLS:\n{{ TOOLS }}\n"
@@ -66,3 +67,14 @@ def test_render_symbols_formats_as_markdown_bullets(base):
     )
     assert "- `session`: a session" in out
     assert "- `disclose`: a discloser" in out
+
+
+def test_render_symbols_list_inherited_classes_and_junctions(advanced_base):
+    descriptions = _init_namespace(State(), advanced_base, [])
+    out = render(base=advanced_base, tools=[], descriptions=descriptions)
+
+    symbols = [line for line in out.splitlines() if line.startswith("- `")]
+    assert any("Manager" in line for line in symbols)
+    assert any("team_members" in line for line in symbols)
+    # The schema section shows the subclass source too.
+    assert "class Manager(Employee)" in out
