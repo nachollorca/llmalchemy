@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from llmalchemy.agent import Output, State
 from tests.fixtures.advanced import AdvancedBase
+from tests.fixtures.joined import JoinedBase
 from tests.fixtures.schema import Author, Base, Book, get_author_catalog
 
 # -- schema / tool ------------------------------------------------------
@@ -31,6 +32,12 @@ def base() -> type[Base]:
 def advanced_base() -> type[AdvancedBase]:
     """Base with single-table inheritance (``Manager``) and a junction table."""
     return AdvancedBase
+
+
+@pytest.fixture(scope="session")
+def joined_base() -> type[JoinedBase]:
+    """Base with joined-table inheritance (``Employee`` owns its own table)."""
+    return JoinedBase
 
 
 @pytest.fixture(scope="session")
