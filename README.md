@@ -17,6 +17,7 @@ Every **new operation** you want to allow a user to perform on your application'
 ## Usage
 
 The only thing you need to define upfront is your database schema through an sqlalchemy declarative base:
+
 ```python
 from llmalchemy.agent import State, run
 from lmdk import UserMessage
@@ -49,7 +50,7 @@ class Book(Base):
     author: Mapped["Author"] = relationship(back_populates="books")
 
 
-model = "vertex:gemini-3-flash-preview"
+model = "mistral:mistral-medium-latest"
 ```
 
 For the minimal run, append the first message to the conversation and simply iterate over the `run` call.
@@ -66,6 +67,7 @@ for event in run(state=state, base=Base, model=model):
 ```
 
 Example output (abbreviated):
+
 ```text
 SystemInstructionEvent(content='You are a coding agent... SCHEMA: class Author...')
 SignalEvent(signal=<Signal.COMPLETION: 'COMPLETION'>)
@@ -102,6 +104,7 @@ for event in run(state=state, base=Base, model=model, tools=[get_author_catalog]
 ```
 
 Example output (abbreviated):
+
 ```text
 SignalEvent(signal=<Signal.COMPLETION: 'COMPLETION'>)
 MessageEvent(message=AssistantMessage(message='Let me check the tool signature first.', code="disclose('get_author_catalog')"))
@@ -131,6 +134,7 @@ for event in run(state=state, base=Base, model=model, allowed_imports=["datetime
 ```
 
 Example output (abbreviated):
+
 ```text
 SignalEvent(signal=<Signal.COMPLETION: 'COMPLETION'>)
 MessageEvent(message=AssistantMessage(message='', code='import datetime\nprint(datetime.date.today().isoformat())'))
@@ -142,9 +146,11 @@ MessageEvent(message=AssistantMessage(message='Today is 2026-04-21.', code=''))
 ```
 
 If the agent tries to import something not whitelisted, validation fails and it gets a second chance:
+
 ```text
 MessageEvent(message=UserMessage(content="Code rejected: import of 'os' is not allowed"))
 ```
+
 </details>
 
 <details>
@@ -164,9 +170,11 @@ for event in run(
 ```
 
 The emitted events are the same as in the minimal example; only the `SystemInstructionEvent` content changes to reflect your custom template:
+
 ```text
 SystemInstructionEvent(content='Write python code to answer user requests. You have access to <schema...>, <symbols...> and <tools...>')
 ```
+
 </details>
 
 <details>
@@ -199,9 +207,11 @@ for event in run(
 #     code='...',
 # ))
 ```
+
 </details>
 
 ## How it works
+
 In short: **user input → LM generates SQLAlchemy code → validate → execute → return results to LM → repeat until done**
 
 ```mermaid
@@ -268,11 +278,16 @@ Today's coding agents (Opencode, Pi, Claude Code) prove that LMs can navigate fi
 
 Application data is a different beast. Dozens of entity types, foreign keys, many-to-many relationships, constraints, cascading dependencies. Relational data is orders of magnitude richer than a directory tree. The ORM gives the LM the right abstraction: it thinks in terms of entities, relationships and queries rather than raw files.
 
+### References
+
+This work is adjacent to tools-as-code or code mode, but much is already known about it. The hotter topic is maybe SQL being the the right abstraction for LMs to explore data. In many ways, better than RAG, file systems, MCPs. [Lewis Ellis](https://www.youtube.com/watch?v=uMudSbZ79-A&pp=ygUOc3FsIGFnZW50IG5lZWQ%3D) makes a very good account of this in his "Why your agent should manage it's context through SQL".
+
 ## Development
 
 This package uses [`lmdk`](https://github.com/nachollorca/lmdk) to inference LLMs.
 
 ### Structure
+
 ```
 src/llmalchemy/
 ├── agent.py      # Entrypoint for the agentic loop
@@ -284,7 +299,9 @@ src/llmalchemy/
 ```
 
 ### Tooling
+
 We use `just` for development tasks. Use:
+
 - `just sync`: Updates lockfile and syncs environment.
 - `just format`: Lints and formats with `ruff`.
 - `just check-types`: Static analysis with `ty`.
@@ -294,11 +311,13 @@ We use `just` for development tasks. Use:
 See [`justfile`](justfile) for a complete list of dev commands.
 
 ### Contribute
+
 1. **Hooks**: Install pre-commit hooks via `just install-hooks`. PRs will fail CI if linting/formatting is not applied.
 2. **Issues**: Open an issue first using the default template.
 3. **PRs**: Link your PR to the relevant issue using the PR template.
 
 ## License
+
 MIT
 
 _Made with [`mold`](https://github.com/nachollorca/mold) template_

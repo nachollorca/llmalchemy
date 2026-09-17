@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from llmalchemy.agent import State, _init_session
-from llmalchemy.database import deserialize, serialize
+from llmalchemy.database import deserialize, serialize, session_status
 from tests.fixtures.advanced import Manager
 from tests.fixtures.joined import Employee
 
@@ -105,3 +105,31 @@ def test_delete_parent_cascades_to_children(base, author_cls, book_cls, make_ses
     session.commit()
 
     assert session.query(book_cls).all() == []
+
+
+# -- session status ----------------------------------------------------
+
+
+def test_session_status_is_empty_when_clean(seeded_session):
+    assert session_status(None) == ""
+    assert session_status(seeded_session) == ""
+
+
+def test_session_status_counts_uncommitted_work(seeded_session, author_cls, book_cls):
+    books = seeded_session.query(book_cls).all()
+    books[0].title = "Renamed"
+    seeded_session.delete(books[-1])
+    seeded_session.add(author_cls(name="New"))
+
+    assert session_status(seeded_session) == (
+        "[session: 1 pending, 1 modified, 1 deleted, uncommitted]"
+    )
+
+
+def test_session_status_reports_dead_transaction(base, book_cls):
+    session = _agent_session(base)
+    session.add(book_cls(title="Orphan", author_id=999))
+    with pytest.raises(IntegrityError):
+        session.flush()
+
+    assert "NEEDS ROLLBACK" in session_status(session)
