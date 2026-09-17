@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.5.1 (2026-09-17)
+
+### Bug Fixes
+
+- Drop stale engine finalizer from deserialize after new_session refactor
+  ([`9f822cc`](https://github.com/nachollorca/llmalchemy/commit/9f822cc110c786de6d133995ac31f8a4661028c0))
+
+### Code Style
+
+- Lint
+  ([`ee7243c`](https://github.com/nachollorca/llmalchemy/commit/ee7243c024708e76d742af510a2a5637371e0a5f))
+
+
 ## v1.5.0 (2026-09-16)
 
 ### Features
