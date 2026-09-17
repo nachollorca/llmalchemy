@@ -79,9 +79,6 @@ def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Ses
         A ready-to-use SQLAlchemy ``Session`` bound to the in-memory database.
     """
     session = new_session(base)
-    # Ensure the underlying sqlite3.Connection is closed when the session
-    # becomes unreachable, avoiding Python 3.13 ResourceWarnings.
-    weakref.finalize(session, engine.dispose)
 
     for table in base.metadata.sorted_tables:
         rows = data.get(table.name)
@@ -91,7 +88,7 @@ def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Ses
     session.commit()
     return session
 
-  
+
 def serialize(session: Session, base: type[DeclarativeBase]) -> dict[str, list[dict]]:
     """Freeze the current database state into a JSON-serializable dict.
 
