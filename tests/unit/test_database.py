@@ -82,6 +82,8 @@ def test_roundtrip_joined_table_inheritance(joined_base):
     restored = deserialize(data=data, base=joined_base)
     assert serialize(session=restored, base=joined_base) == data
     assert restored.query(Employee).one().salary == 100
+
+
 # -- foreign-key enforcement -------------------------------------------
 
 

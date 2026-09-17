@@ -22,7 +22,9 @@ from llmalchemy.agent import State, run
 from lmdk import UserMessage
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+
 class Base(DeclarativeBase): ...
+
 
 class Author(Base):
     """An author who can write many books."""
@@ -55,7 +57,9 @@ You will receive `Events` with the messages and code results performed by the ag
 
 ```python
 state = State()
-state.messages.append(UserMessage("Add authors Tolkien and Dhalia de la Cerda, and two books for each."))
+state.messages.append(
+    UserMessage("Add authors Tolkien and Dhalia de la Cerda, and two books for each.")
+)
 
 for event in run(state=state, base=Base, model=model):
     print(event)
@@ -84,11 +88,13 @@ These can modify the database or do something completely different, like perform
 from sqlalchemy.orm import Session
 from llmalchemy.tools import tool
 
+
 @tool
 def get_author_catalog(author: str, session: Session) -> list[str]:
     """List all book titles for the given author."""
     obj = session.query(Author).filter(Author.name == author).first()
     return [b.title for b in obj.books] if obj else []
+
 
 state.messages.append(UserMessage("what's the catalog for Dhalia de la Cerda?"))
 for event in run(state=state, base=Base, model=model, tools=[get_author_catalog]):
@@ -120,7 +126,7 @@ Whitelist any stdlib or third-party module the agent may need.
 
 ```python
 state.messages.append(UserMessage("what day is today?"))
-for event in run( state=state, base=Base, model=model, allowed_imports=["datetime"]):
+for event in run(state=state, base=Base, model=model, allowed_imports=["datetime"]):
     print(event)
 ```
 
@@ -171,9 +177,11 @@ You can specify any additional fields for the LM to fill.
 ```python
 from pydantic import BaseModel, Field
 
+
 class Reasoning(BaseModel):
     thoughts: str = Field(description="Scratchpad before answering.")
     confidence: float = Field(description="0..1 confidence score.")
+
 
 for event in run(
     state=state,
