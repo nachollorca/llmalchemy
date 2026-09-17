@@ -8,6 +8,7 @@ from lmdk import UserMessage
 from pydantic import BaseModel, Field
 
 from llmalchemy.agent import (
+    DatabaseChangesEvent,
     MessageEvent,
     Signal,
     SignalEvent,
@@ -183,3 +184,38 @@ def test_state_persists_across_runs(base, state, author_cls, fake_llm):
     assert names == ["first", "second"]
     # Namespace was reused: `Author` symbol is still bound.
     assert state.namespace["Author"] is author_cls
+
+
+def test_emits_database_changes_event(base, state, fake_llm):
+    fake = fake_llm()
+    fake.reply(code="session.add(Author(name='X')); session.commit()")
+    fake.reply(message="done")
+
+    state.messages.append(UserMessage("add X"))
+    events = list(run(state=state, base=base, model="fake"))
+
+    event = next(e for e in events if isinstance(e, DatabaseChangesEvent))
+    assert event.changes["authors"].added[0]["name"] == "X"
+
+
+def test_database_changes_event_reports_update(base, ready_state, fake_llm):
+    fake = fake_llm()
+    fake.reply(code="a = session.query(Author).first(); a.name = 'Renamed'; session.commit()")
+    fake.reply(message="done")
+
+    ready_state.messages.append(UserMessage("rename first"))
+    events = list(run(state=ready_state, base=base, model="fake"))
+
+    event = next(e for e in events if isinstance(e, DatabaseChangesEvent))
+    assert event.changes["authors"].updated[0].after["name"] == "Renamed"
+
+
+def test_no_database_changes_event_for_read_only_run(base, state, fake_llm):
+    fake = fake_llm()
+    fake.reply(code="print('read only')")
+    fake.reply(message="done")
+
+    state.messages.append(UserMessage("look"))
+    events = list(run(state=state, base=base, model="fake"))
+
+    assert not any(isinstance(e, DatabaseChangesEvent) for e in events)
