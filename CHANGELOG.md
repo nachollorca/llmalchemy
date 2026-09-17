@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.6.0 (2026-09-17)
+
+### Documentation
+
+- **readme**: Add link to lewis ellis video
+  ([`9c47e0a`](https://github.com/nachollorca/llmalchemy/commit/9c47e0a8226565525a13c4115151264ec997fd0d))
+
+### Features
+
+- **core**: Explain transactional model
+  ([`50fceb6`](https://github.com/nachollorca/llmalchemy/commit/50fceb65277edf5fc7d8d3e1089457901aaf2ce4))
+
+
 ## v1.5.1 (2026-09-17)
 
 ### Bug Fixes
