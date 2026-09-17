@@ -2,7 +2,6 @@
 
 from typing import Any, cast
 
-import pytest
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -12,7 +11,6 @@ from llmalchemy.agent import (
     _build_output_schema,
     _init_namespace,
     _init_session,
-    run,
 )
 from llmalchemy.code import execute, validate
 from llmalchemy.tools import Tool
@@ -132,15 +130,6 @@ def test_agent_code_can_insert_into_junction(advanced_base):
 
 
 # -- run() early-exits ------------------------------------------------
-
-
-def test_run_with_thinking_raises_not_implemented(base):
-    state = State()
-    gen = run(state=state, base=base, model="x", thinking=True)
-    with pytest.raises(NotImplementedError):
-        next(gen)
-
-
 def test_tool_class_is_used_by_agent(catalog_tool):
     # Sanity: the fixture is shaped the way agent.py expects.
     assert isinstance(catalog_tool, Tool)

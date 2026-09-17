@@ -1,8 +1,25 @@
 """Tests for the serialize / deserialize round-trip."""
 
+import pytest
+from sqlalchemy.exc import IntegrityError
+
+from llmalchemy.agent import State, _init_session
 from llmalchemy.database import deserialize, serialize
 from tests.fixtures.advanced import Manager
 from tests.fixtures.joined import Employee
+
+
+def _agent_session(base):
+    """The session ``agent.run`` creates for itself."""
+    state = State()
+    _init_session(state, base)
+    return state.session
+
+
+_FK_SESSIONS = [
+    pytest.param(_agent_session, id="agent"),
+    pytest.param(lambda base: deserialize(data={}, base=base), id="deserialize"),
+]
 
 
 def test_serialize_seeded_session(base, seeded_session):
@@ -65,3 +82,24 @@ def test_roundtrip_joined_table_inheritance(joined_base):
     restored = deserialize(data=data, base=joined_base)
     assert serialize(session=restored, base=joined_base) == data
     assert restored.query(Employee).one().salary == 100
+# -- foreign-key enforcement -------------------------------------------
+
+
+@pytest.mark.parametrize("make_session", _FK_SESSIONS)
+def test_dangling_foreign_key_is_rejected(base, book_cls, make_session):
+    session = make_session(base)
+    session.add(book_cls(title="Orphan", author_id=999))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+@pytest.mark.parametrize("make_session", _FK_SESSIONS)
+def test_delete_parent_cascades_to_children(base, author_cls, book_cls, make_session):
+    session = make_session(base)
+    session.add(author_cls(name="Tolkien", books=[book_cls(title="LOTR")]))
+    session.commit()
+
+    session.delete(session.query(author_cls).one())
+    session.commit()
+
+    assert session.query(book_cls).all() == []

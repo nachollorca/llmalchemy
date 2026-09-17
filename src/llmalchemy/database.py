@@ -3,7 +3,7 @@
 import sys
 import weakref
 
-from sqlalchemy import Table, create_engine, insert, select
+from sqlalchemy import Table, create_engine, event, insert, select
 from sqlalchemy.orm import DeclarativeBase, Session
 
 
@@ -36,6 +36,35 @@ def association_tables(base: type[DeclarativeBase]) -> dict[str, Table]:
     }
 
 
+def _enable_foreign_keys(dbapi_connection, _record) -> None:
+    """Turn on FK enforcement, which SQLite leaves off on every new connection."""
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
+def new_session(base: type[DeclarativeBase]) -> Session:
+    """Create a session on a fresh in-memory SQLite database with *base*'s schema.
+
+    Foreign keys are enforced, so cascades and dangling references behave like
+    they would on the consumer's real database instead of being ignored.
+
+    Args:
+        base: The declarative base whose metadata describes the schema.
+
+    Returns:
+        A ready-to-use SQLAlchemy ``Session``.
+    """
+    engine = create_engine("sqlite://")
+    event.listen(engine, "connect", _enable_foreign_keys)
+    base.metadata.create_all(engine)
+    session = Session(engine)
+    # Ensure the underlying sqlite3.Connection is closed when the session
+    # becomes unreachable, avoiding Python 3.13 ResourceWarnings.
+    weakref.finalize(session, engine.dispose)
+    return session
+
+
 def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Session:
     """Unpack a JSON-serialised database state into an SQLAlchemy session.
 
@@ -49,9 +78,7 @@ def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Ses
     Returns:
         A ready-to-use SQLAlchemy ``Session`` bound to the in-memory database.
     """
-    engine = create_engine("sqlite://")
-    base.metadata.create_all(engine)
-    session = Session(engine)
+    session = new_session(base)
     # Ensure the underlying sqlite3.Connection is closed when the session
     # becomes unreachable, avoiding Python 3.13 ResourceWarnings.
     weakref.finalize(session, engine.dispose)
@@ -64,7 +91,7 @@ def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Ses
     session.commit()
     return session
 
-
+  
 def serialize(session: Session, base: type[DeclarativeBase]) -> dict[str, list[dict]]:
     """Freeze the current database state into a JSON-serializable dict.
 
