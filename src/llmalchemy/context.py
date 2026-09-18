@@ -13,7 +13,7 @@ from .tools import Tool
 
 _TEMPLATE_PATH = Path(__file__).parent / "prompt.jinja"
 
-_REQUIRED_MARKERS = ("SCHEMA", "SYMBOLS", "TOOLS")
+_REQUIRED_MARKERS = ("SCHEMA", "SYMBOLS", "TOOLS", "IMPORTS")
 
 
 class LLMAlchemyPromptWarning(UserWarning):
@@ -43,6 +43,14 @@ def _render_tools_summary(tools: list[Tool]) -> str:
     return "\n".join(f"- `{t.name}`: {t.short_description}" for t in tools)
 
 
+def _render_imports(allowed_imports: list[str]) -> str:
+    """Render the import policy as one sentence."""
+    if not allowed_imports:
+        return "`import` statements are forbidden. Use only the pre-loaded symbols listed below."
+    modules = ", ".join(f"`{m}`" for m in allowed_imports)
+    return f"Only these modules may be imported: {modules}."
+
+
 def _check_markers(source: str) -> None:
     """Warn for each required Jinja variable missing from the raw template source."""
     for marker in _REQUIRED_MARKERS:
@@ -60,6 +68,7 @@ def render(
     tools: list[Tool],
     descriptions: dict[str, str],
     template: str | Path | None = None,
+    allowed_imports: list[str] | None = None,
 ) -> str:
     """Build the system instruction for the LM with all context parts.
 
@@ -70,6 +79,8 @@ def render(
             as returned by ``_init_namespace`` in ``agent.py``.
         template: A Jinja template source string, a ``Path`` to a template
             file, or ``None`` to use the shipped default.
+        allowed_imports: Modules the agent may import. ``None`` or an empty
+            list means imports are forbidden.
     """
     if template is None:
         path: Path = _TEMPLATE_PATH
@@ -80,6 +91,7 @@ def render(
             SCHEMA=_render_schema_source(base=base),
             SYMBOLS=_render_symbols(descriptions),
             TOOLS=_render_tools_summary(tools),
+            IMPORTS=_render_imports(allowed_imports or []),
         )
     source = template.read_text() if isinstance(template, Path) else template
     _check_markers(source)
@@ -88,4 +100,5 @@ def render(
         SCHEMA=_render_schema_source(base=base),
         SYMBOLS=_render_symbols(descriptions),
         TOOLS=_render_tools_summary(tools),
+        IMPORTS=_render_imports(allowed_imports or []),
     )

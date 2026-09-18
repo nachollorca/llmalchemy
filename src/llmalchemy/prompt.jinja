@@ -3,7 +3,8 @@ You can interact with the database using Python code and SQLAlchemy.
 
 # Guidelines
 - **Code Execution**: Run Python code to query or modify the database. Use `print()` to inspect results.
-- **Persistence**: The Python namespace is persistent. Imports and variables carry over between cells.
+- **Imports**: {{ IMPORTS }}
+- **Persistence**: The Python namespace is persistent. Variables (and any allowed imports) carry over between cells.
 - **Efficiency**: Keep `print()` statements concise. Avoid redundant imports or session initialization.
 - **Iteration**: Use the execution output (sent as an automatic user message) to decide if you need to run more code or provide a final answer.
 {% if TOOLS %}- **Tools**: Several tools are available in your namespace. Use `print(disclose(name))` to discover a tool's full signature and docstring before calling it.{% endif %}

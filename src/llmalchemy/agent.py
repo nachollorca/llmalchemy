@@ -231,12 +231,14 @@ def run(
         model: Model identifier forwarded to ``complete()``.
         tools: User-provided tools the agent can call in generated code.
         allowed_imports: Any vanilla module or third-party package that the agent can use.
+            Defaults to ``["sqlalchemy"]``; pass ``[]`` to forbid all imports.
         output_extensions: Optional Pydantic model to force in the LM structured output.
         thinking_effort: Level of thinking for provider-native reasoning tokens.
         prompt_template: Custom jinja system prompt. Should contain placeholders for:
             - ``SCHEMA``: used to show agent the source code of ORM classes
             - ``SYMBOLS``: used to show ageent all pre-loaded namespace symbols.
             - ``TOOLS``: usedf to show the agent tool names + short descriptions.
+            - ``IMPORTS``: used to show the agent which modules it may import.
 
     Yields:
         ``Event``: system instruction, loop signals, and conversation messages.
@@ -267,11 +269,11 @@ def _run(
     """Agentic loop body (see :func:`run`)."""
     # Initialize everything
     tools = tools or []
-    allowed_imports = allowed_imports or []
+    allowed_imports = ["sqlalchemy"] if allowed_imports is None else allowed_imports
     output_schema = _build_output_schema(output_extensions)
     _init_session(state, base)
     descriptions = _init_namespace(state, base, tools)
-    system_instruction = render(base, tools, descriptions, prompt_template)
+    system_instruction = render(base, tools, descriptions, prompt_template, allowed_imports)
     yield SystemInstructionEvent(system_instruction)
     before = serialize(state.session, base)
 

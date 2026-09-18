@@ -7,7 +7,9 @@ import pytest
 from llmalchemy.agent import State, _init_namespace
 from llmalchemy.context import LLMAlchemyPromptWarning, render
 
-_MINIMAL_TEMPLATE = "SCHEMA:\n{{ SCHEMA }}\nSYMBOLS:\n{{ SYMBOLS }}\nTOOLS:\n{{ TOOLS }}\n"
+_MINIMAL_TEMPLATE = (
+    "SCHEMA:\n{{ SCHEMA }}\nSYMBOLS:\n{{ SYMBOLS }}\nTOOLS:\n{{ TOOLS }}\nIMPORTS:\n{{ IMPORTS }}\n"
+)
 
 
 def test_render_default_template_contains_all_sections(base, catalog_tool):
@@ -40,7 +42,7 @@ def test_render_with_path_template(base, tmp_path: Path):
     assert "class Book(Base)" in out
 
 
-@pytest.mark.parametrize("missing", ["SCHEMA", "SYMBOLS", "TOOLS"])
+@pytest.mark.parametrize("missing", ["SCHEMA", "SYMBOLS", "TOOLS", "IMPORTS"])
 def test_render_warns_on_missing_marker(base, missing: str):
     template = _MINIMAL_TEMPLATE.replace("{{ " + missing + " }}", "")
     with pytest.warns(LLMAlchemyPromptWarning, match=missing):
@@ -56,6 +58,17 @@ def test_render_tools_section_empty_when_no_tools(base):
     )
     # The TOOLS section is present in the template but has no bullets.
     assert "TOOLS:\n" in out
+
+
+def test_render_imports_reports_policy(base):
+    forbidden = render(base=base, tools=[], descriptions={}, allowed_imports=[])
+    assert "import` statements are forbidden" in forbidden
+
+    allowed = render(
+        base=base, tools=[], descriptions={}, allowed_imports=["sqlalchemy", "datetime"]
+    )
+    assert "`sqlalchemy`" in allowed
+    assert "`datetime`" in allowed
 
 
 def test_render_symbols_formats_as_markdown_bullets(base):
