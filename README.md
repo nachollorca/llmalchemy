@@ -54,7 +54,7 @@ model = "mistral:mistral-medium-latest"
 ```
 
 For the minimal run, append the first message to the conversation and simply iterate over the `run` call.
-You will receive `Events` with the messages and code results performed by the agent, together with precise signals indicating the agents loop state (waiting for the LM completion, executing code, etc.):
+You will receive `Events` with the messages and code results performed by the agent, together with precise signals indicating the agents loop state (waiting for the LM completion, executing code, etc.). If the agent's code modified the database, a final `DatabaseChangesEvent` reports the net additions, updates and deletions made during the run:
 
 ```python
 state = State()
@@ -77,6 +77,7 @@ SignalEvent(signal=<Signal.EXECUTION: 'EXECUTION'>)
 MessageEvent(message=UserMessage(content='Execution result:\nok\n'))
 SignalEvent(signal=<Signal.COMPLETION: 'COMPLETION'>)
 MessageEvent(message=AssistantMessage(message='Done — added Tolkien and Dhalia de la Cerda with two books each.', code=''))
+DatabaseChangesEvent(changes={'authors': TableChanges(added=[{'id': 1, 'name': 'J.R.R. Tolkien'}, {'id': 2, 'name': 'Dhalia de la Cerda'}], updated=[], deleted=[]), 'books': TableChanges(added=[{'id': 1, 'title': 'The Hobbit', 'author_id': 1}, ...], updated=[], deleted=[])})
 ```
 
 The `state` persists across calls, just append a new `UserMessage` and call `run()` again to continue the conversation.
