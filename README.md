@@ -125,12 +125,17 @@ The agent calls `disclose("get_author_catalog")` to inspect the full signature o
 
 <details>
 <summary>Allowed imports</summary>
-For safety, no imports are allowed inside agent-generated code.
-Whitelist any stdlib or third-party module the agent may need.
+For safety, agent-generated code may only import `sqlalchemy` by default
+(the library's own dependency, and the ORM session is already exposed).
+Pass `allowed_imports` to whitelist other stdlib or third-party modules;
+an explicit list *replaces* the default, so include `"sqlalchemy"` if the
+agent still needs it. Pass `[]` to forbid all imports.
 
 ```python
 state.messages.append(UserMessage("what day is today?"))
-for event in run(state=state, base=Base, model=model, allowed_imports=["datetime"]):
+for event in run(
+    state=state, base=Base, model=model, allowed_imports=["sqlalchemy", "datetime"]
+):
     print(event)
 ```
 
@@ -149,7 +154,7 @@ MessageEvent(message=AssistantMessage(message='Today is 2026-04-21.', code=''))
 If the agent tries to import something not whitelisted, validation fails and it gets a second chance:
 
 ```text
-MessageEvent(message=UserMessage(content="Code rejected: import of 'os' is not allowed"))
+MessageEvent(message=UserMessage(content="Code rejected: Forbidden import: os"))
 ```
 
 </details>
@@ -157,10 +162,10 @@ MessageEvent(message=UserMessage(content="Code rejected: import of 'os' is not a
 <details>
 <summary>Custom system prompt</summary>
 You can pass a Jinja template to override the default one (see `src/llmalchemy/prompt.jinja`).
-It is recommended that the template contains vars {{ SCHEMA }}, {{ SYMBOLS }} and {{ TOOLS }}.
+It is recommended that the template contains vars {{ SCHEMA }}, {{ SYMBOLS }}, {{ TOOLS }} and {{ IMPORTS }}.
 
 ```python
-prompt = """Write python code to answer user requests. You have access to {{ SCHEMA }}, {{ SYMBOLS }} and {{ TOOLS }}"""
+prompt = """Write python code to answer user requests. You have access to {{ SCHEMA }}, {{ SYMBOLS }} and {{ TOOLS }}."""
 for event in run(
     state=state,
     base=Base,
