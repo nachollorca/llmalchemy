@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.9.0 (2026-09-18)
+
+### Documentation
+
+- Update telemetry explanation in README
+  ([`bd35ab6`](https://github.com/nachollorca/llmalchemy/commit/bd35ab6f22f8f868260103460af811943f3599df))
+
+- **readme**: Include the `DatabaseChangesEvent`
+  ([`44ff420`](https://github.com/nachollorca/llmalchemy/commit/44ff42084a494f7c1e30af8e2e7164352e6168e4))
+
+### Features
+
+- Allow sqlalchemy imports by default and report import policy in prompt
+  ([`ae0a41a`](https://github.com/nachollorca/llmalchemy/commit/ae0a41a69d577727f27484f159b6271e90a52ad6))
+
+
 ## v1.8.0 (2026-09-18)
 
 ### Features
