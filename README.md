@@ -210,6 +210,25 @@ for event in run(
 
 </details>
 
+<details>
+<summary>Telemetry</summary>
+Each `run()` opens one OpenTelemetry root span (`agent run <model>`), so every LM completion of that loop — [`lmdk`](https://github.com/nachollorca/lmdk)'s `chat` spans, following the GenAI semconv — lands in a **single trace per run**.
+
+```bash
+uv add 'llmalchemy[telemetry]'
+export LMDK_TELEMETRY=metadata  # or `content` to also record prompts and responses
+```
+
+Without the extra installed, or with no `TracerProvider` configured, spans are a no-op. `llmalchemy` only _emits_ through the OpenTelemetry API: your application owns the exporter and where traces go (Logfire, Grafana Tempo, an OTel Collector…). For instance:
+
+```python
+import logfire
+
+logfire.configure(service_name="my-app")  # sets the global TracerProvider
+```
+
+</details>
+
 ## How it works
 
 In short: **user input → LM generates SQLAlchemy code → validate → execute → return results to LM → repeat until done**

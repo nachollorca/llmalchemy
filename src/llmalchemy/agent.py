@@ -1,6 +1,7 @@
 """Contains the agentic loop and related utils."""
 
 from collections.abc import Generator, Iterator
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -23,6 +24,20 @@ from .database import (
 from .tools import Tool, make_disclose_fn
 
 MAX_LOOPS = 20
+
+try:  # OpenTelemetry is optional: `uv add llmalchemy[telemetry]`
+    from opentelemetry import trace
+
+    _tracer = trace.get_tracer("llmalchemy")
+except ImportError:  # pragma: no cover
+    _tracer = None
+
+
+def _run_span(model: str) -> AbstractContextManager[Any]:
+    """Root span grouping every completion of one ``run()`` into a single trace."""
+    if _tracer is None:
+        return nullcontext()
+    return _tracer.start_as_current_span(f"agent run {model}")
 
 
 @dataclass
@@ -226,6 +241,30 @@ def run(
     Yields:
         ``Event``: system instruction, loop signals, and conversation messages.
     """
+    with _run_span(model):
+        yield from _run(
+            state,
+            base,
+            model,
+            thinking_effort,
+            tools,
+            allowed_imports,
+            prompt_template,
+            output_extensions,
+        )
+
+
+def _run(
+    state: State,
+    base: type[DeclarativeBase],
+    model: str,
+    thinking_effort: ThinkingEffort,
+    tools: list[Tool] | None,
+    allowed_imports: list[str] | None,
+    prompt_template: str | Path | None,
+    output_extensions: type[BaseModel] | None,
+) -> Iterator[Event]:
+    """Agentic loop body (see :func:`run`)."""
     # Initialize everything
     tools = tools or []
     allowed_imports = allowed_imports or []
