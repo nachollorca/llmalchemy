@@ -2,6 +2,7 @@
 
 import sys
 import weakref
+from dataclasses import dataclass
 
 from sqlalchemy import Table, create_engine, event, insert, select
 from sqlalchemy.orm import DeclarativeBase, Session
@@ -65,36 +66,6 @@ def new_session(base: type[DeclarativeBase]) -> Session:
     return session
 
 
-def session_status(session: Session | None) -> str:
-    """Summarize uncommitted session state in one line, empty when there is nothing to report.
-
-    Shown to the agent after every code execution so that the transactional
-    state, otherwise invisible unless printed, is observable. Reading
-    ``new``/``dirty``/``deleted`` never triggers a flush.
-
-    Args:
-        session: The active session, or ``None`` before initialization.
-
-    Returns:
-        A bracketed status line, or ``""`` when the session is clean.
-    """
-    if session is None:
-        return ""
-    # `is_active` is False only when a failed flush deactivated the transaction.
-    if not session.is_active:
-        return "[session: NEEDS ROLLBACK, transaction dead until session.rollback()]"
-    counts = [
-        f"{len(collection)} {label}"
-        for collection, label in (
-            (session.new, "pending"),
-            (session.dirty, "modified"),
-            (session.deleted, "deleted"),
-        )
-        if collection
-    ]
-    return f"[session: {', '.join(counts)}, uncommitted]" if counts else ""
-
-
 def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Session:
     """Unpack a JSON-serialised database state into an SQLAlchemy session.
 
@@ -119,21 +90,102 @@ def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Ses
     return session
 
 
-def serialize(session: Session, base: type[DeclarativeBase]) -> dict[str, list[dict]]:
+def serialize(session: Session | None, base: type[DeclarativeBase]) -> dict[str, list[dict]] | None:
     """Freeze the current database state into a JSON-serializable dict.
 
+    Snapshots are taken with autoflush disabled, so pending ORM work stays
+    pending instead of being flushed as a side effect of reading.
+
     Args:
-        session: The active session to read from.
+        session: The active session to read from, or ``None``.
         base: The declarative base whose metadata describes the schema.
 
     Returns:
-        ``{table_name: [row_dict, ...]}`` for every table in the schema.
+        ``{table_name: [row_dict, ...]}`` for every table in the schema, or
+        ``None`` when the session is missing or its transaction is dead, where
+        reading would raise ``PendingRollbackError``.
     """
+    if session is None or not session.is_active:
+        return None
     # Snapshot at the table level: classes are not tables. Single-table
     # inheritance would duplicate rows if walked per class, and joined-table
     # inheritance would drop the subclass table entirely.
     result: dict[str, list[dict]] = {}
-    for table in base.metadata.sorted_tables:
-        rows = session.execute(select(table)).all()
-        result[table.name] = [dict(row._mapping) for row in rows]
+    with session.no_autoflush:
+        for table in base.metadata.sorted_tables:
+            rows = session.execute(select(table)).all()
+            result[table.name] = [dict(row._mapping) for row in rows]
     return result
+
+
+@dataclass(frozen=True)
+class RowUpdate:
+    """A row's serialized state before and after an update."""
+
+    before: dict
+    after: dict
+
+
+@dataclass(frozen=True)
+class TableChanges:
+    """Row-level changes to one table, rows identified by primary key."""
+
+    added: list[dict]
+    updated: list[RowUpdate]
+    deleted: list[dict]
+
+
+def _rows_by_key(table: Table, snapshot: dict[str, list[dict]]) -> dict[tuple, dict]:
+    """Index a snapshot's rows for *table* by their primary-key tuple."""
+    names = [column.name for column in table.primary_key.columns]
+    return {tuple(row[name] for name in names): row for row in snapshot.get(table.name, [])}
+
+
+def _table_diff(
+    table: Table,
+    before: dict[str, list[dict]],
+    after: dict[str, list[dict]],
+) -> TableChanges | None:
+    """Diff one PK-bearing table, or ``None`` when nothing changed."""
+    old = _rows_by_key(table, before)
+    new = _rows_by_key(table, after)
+    added = [new[key] for key in new.keys() - old.keys()]
+    deleted = [old[key] for key in old.keys() - new.keys()]
+    updated = [
+        RowUpdate(before=old[key], after=new[key])
+        for key in old.keys() & new.keys()
+        if old[key] != new[key]
+    ]
+    if not (added or updated or deleted):
+        return None
+    return TableChanges(added=added, updated=updated, deleted=deleted)
+
+
+def diff(
+    before: dict[str, list[dict]],
+    after: dict[str, list[dict]],
+    base: type[DeclarativeBase],
+) -> dict[str, TableChanges]:
+    """Compute row-level changes between two :func:`serialize` snapshots.
+
+    Rows are identified by their primary key, so composite keys (junction
+    tables declared as ``Table(...)``) work. Tables without a primary key have
+    no stable identity and are skipped.
+
+    Args:
+        before: Snapshot taken before the agent ran.
+        after: Snapshot taken right after.
+        base: The declarative base describing the schema.
+
+    Returns:
+        ``{table_name: TableChanges}`` for the tables that changed.
+    """
+    tables: dict[str, TableChanges] = {}
+    for table in base.metadata.sorted_tables:
+        if len(table.primary_key.columns) == 0:
+            # ponytail: no PK -> no stable row identity, skip. Add a synthetic
+            # key if a schema without PKs ever needs its changes reported.
+            continue
+        if changes := _table_diff(table, before, after):
+            tables[table.name] = changes
+    return tables

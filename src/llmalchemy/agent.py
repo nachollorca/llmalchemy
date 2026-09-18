@@ -12,7 +12,14 @@ from sqlalchemy.orm import DeclarativeBase, Session
 
 from .code import execute, validate
 from .context import render
-from .database import association_tables, mapped_classes, new_session, session_status
+from .database import (
+    TableChanges,
+    association_tables,
+    diff,
+    mapped_classes,
+    new_session,
+    serialize,
+)
 from .tools import Tool, make_disclose_fn
 
 MAX_LOOPS = 20
@@ -73,6 +80,13 @@ class SystemInstructionEvent(Event):
     """The system instruction sent to the model."""
 
     content: str
+
+
+@dataclass(frozen=True)
+class DatabaseChangesEvent(Event):
+    """Net row changes the agent made to the database during the run."""
+
+    changes: dict[str, TableChanges]
 
 
 def _complete(
@@ -220,6 +234,7 @@ def run(
     descriptions = _init_namespace(state, base, tools)
     system_instruction = render(base, tools, descriptions, prompt_template)
     yield SystemInstructionEvent(system_instruction)
+    before = serialize(state.session, base)
 
     # First call to the model
     output = yield from _complete(state, model, system_instruction, output_schema, thinking_effort)
@@ -246,11 +261,16 @@ def run(
 
         yield SignalEvent(Signal.EXECUTION)
         result = execute(source=code, namespace=state.namespace)
-        parts = [f"Execution result:\n{result.strip()}", session_status(state.session)]
-        message = UserMessage("\n".join(part for part in parts if part))
+        message = UserMessage(f"Execution result:\n\n```\n{result}\n```")
         state.messages.append(message)
         yield MessageEvent(message)
         output = yield from _complete(
             state, model, system_instruction, output_schema, thinking_effort
         )
         code = output.code
+
+    after = serialize(state.session, base)
+    if before and after:
+        changes = diff(before, after, base)
+        if changes:
+            yield DatabaseChangesEvent(changes)
