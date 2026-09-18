@@ -212,7 +212,7 @@ for event in run(
 
 <details>
 <summary>Telemetry</summary>
-Each `run()` opens one OpenTelemetry root span (`agent run <model>`), so every LM completion of that loop — [`lmdk`](https://github.com/nachollorca/lmdk)'s `chat` spans, following the GenAI semconv — lands in a **single trace per run**.
+Each run opens one OpenTelemetry root span, so every LM completion of that loop, following the GenAI semconv, lands in a single trace per run.
 
 ```bash
 uv add 'llmalchemy[telemetry]'
