@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.7.0 (2026-09-18)
+
+### Bug Fixes
+
+- **agent**: Make the execution result format properly
+  ([`eb76468`](https://github.com/nachollorca/llmalchemy/commit/eb76468d1b45115eb876fcc361c0f2a4702d4b7a))
+
+### Features
+
+- **core**: Emit database changes event
+  ([`c80d481`](https://github.com/nachollorca/llmalchemy/commit/c80d481f1b9151440976622ccd099c51b09c9541))
+
+
 ## v1.6.0 (2026-09-17)
 
 ### Documentation
