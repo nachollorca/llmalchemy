@@ -261,7 +261,7 @@ def run(
 
         yield SignalEvent(Signal.EXECUTION)
         result = execute(source=code, namespace=state.namespace)
-        message = UserMessage(f"Execution result:\n```{result}```")
+        message = UserMessage(f"Execution result:\n\n```\n{result}\n```")
         state.messages.append(message)
         yield MessageEvent(message)
         output = yield from _complete(
