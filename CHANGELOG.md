@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.8.0 (2026-09-18)
+
+### Features
+
+- **agent**: Open one trace per agent run
+  ([`093794f`](https://github.com/nachollorca/llmalchemy/commit/093794f462eaef0f5bf72df24f9aaf2f5f14049b))
+
+
 ## v1.7.0 (2026-09-18)
 
 ### Bug Fixes
