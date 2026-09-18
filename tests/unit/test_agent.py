@@ -2,6 +2,7 @@
 
 from typing import Any, cast
 
+import pytest
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -134,3 +135,28 @@ def test_tool_class_is_used_by_agent(catalog_tool):
     # Sanity: the fixture is shaped the way agent.py expects.
     assert isinstance(catalog_tool, Tool)
     assert callable(catalog_tool.fn)
+
+
+# -- telemetry --------------------------------------------------------
+def test_run_span_parents_completion_spans():
+    pytest.importorskip("opentelemetry.sdk")
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    from llmalchemy.agent import _run_span
+
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    trace.set_tracer_provider(provider)
+
+    with _run_span("some:model"), trace.get_tracer("lmdk").start_as_current_span("chat x"):
+        pass
+
+    child, root = exporter.get_finished_spans()
+    assert child.context.trace_id == root.context.trace_id
+    parent = child.parent
+    assert parent is not None
+    assert parent.span_id == root.context.span_id

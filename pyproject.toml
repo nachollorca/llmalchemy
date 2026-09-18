@@ -11,8 +11,12 @@ dependencies = [
     "sqlalchemy"
 ]
 
+[project.optional-dependencies]
+telemetry = ["lmdk[telemetry]"]
+
 [dependency-groups]
 dev = [
+    "opentelemetry-sdk",
     "complexipy",
     "pytest-cov",
     "ruff",
