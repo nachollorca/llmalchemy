@@ -3,8 +3,10 @@
 import sys
 import weakref
 from dataclasses import dataclass
+from datetime import date, datetime, time
 
-from sqlalchemy import Table, create_engine, event, insert, select
+from sqlalchemy import Date, DateTime, Table, Time, create_engine, event, insert, select
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session
 
 
@@ -66,6 +68,34 @@ def new_session(base: type[DeclarativeBase]) -> Session:
     return session
 
 
+def _parse_temporal(table: Table, rows: list[dict]) -> list[dict]:
+    """Parse ISO strings for date/time columns back into Python objects.
+
+    A JSON round-trip turns ``datetime``/``date``/``time`` values into strings,
+    which the SQLite DBAPI rejects. Only columns typed as temporal are parsed, so
+    a text column holding a timestamp-like string is left untouched.
+    """
+    parsers = {
+        column.name: parser
+        for column in table.columns
+        for type_, parser in (
+            (DateTime, datetime.fromisoformat),
+            (Date, date.fromisoformat),
+            (Time, time.fromisoformat),
+        )
+        if isinstance(column.type, type_)
+    }
+    if not parsers:
+        return rows
+    return [
+        {
+            key: parsers[key](value) if key in parsers and isinstance(value, str) else value
+            for key, value in row.items()
+        }
+        for row in rows
+    ]
+
+
 def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Session:
     """Unpack a JSON-serialised database state into an SQLAlchemy session.
 
@@ -81,12 +111,20 @@ def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Ses
     """
     session = new_session(base)
 
-    for table in base.metadata.sorted_tables:
-        rows = data.get(table.name)
-        if rows:
-            session.execute(insert(table), rows)
-
-    session.commit()
+    try:
+        for table in base.metadata.sorted_tables:
+            rows = data.get(table.name)
+            if rows:
+                session.execute(insert(table), _parse_temporal(table, rows))
+        session.commit()
+    except Exception:
+        # A partially-populated session must not be left to the garbage
+        # collector: its connection belongs to this thread (see new_session).
+        engine = session.get_bind()
+        session.close()
+        if isinstance(engine, Engine):
+            engine.dispose()
+        raise
     return session
 
 
