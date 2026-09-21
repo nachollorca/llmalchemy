@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.10.1 (2026-09-21)
+
+### Bug Fixes
+
+- **database**: Close and dispose engine on deserialization crash
+  ([`7ec3b75`](https://github.com/nachollorca/llmalchemy/commit/7ec3b752a8730f777c7a7ba58445d74f62fc4174))
+
+- **serialization**: Parse ISO strings for datetime columns into python objects
+  ([`a72aa41`](https://github.com/nachollorca/llmalchemy/commit/a72aa41bf8d75864c4df659db4eb7f453677066f))
+
+
 ## v1.10.0 (2026-09-21)
 
 
