@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 
 from sqlalchemy import Date, DateTime, Table, Time, create_engine, event, insert, select
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session
 
 
@@ -110,12 +111,20 @@ def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Ses
     """
     session = new_session(base)
 
-    for table in base.metadata.sorted_tables:
-        rows = data.get(table.name)
-        if rows:
-            session.execute(insert(table), _parse_temporal(table, rows))
-
-    session.commit()
+    try:
+        for table in base.metadata.sorted_tables:
+            rows = data.get(table.name)
+            if rows:
+                session.execute(insert(table), _parse_temporal(table, rows))
+        session.commit()
+    except Exception:
+        # A partially-populated session must not be left to the garbage
+        # collector: its connection belongs to this thread (see new_session).
+        engine = session.get_bind()
+        session.close()
+        if isinstance(engine, Engine):
+            engine.dispose()
+        raise
     return session
 
 

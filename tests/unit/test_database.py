@@ -8,6 +8,7 @@ from sqlalchemy import Column, Date, DateTime, Integer, MetaData, String, Table,
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Session
 
+import llmalchemy.database as database
 from llmalchemy.agent import State, _init_session
 from llmalchemy.database import _parse_temporal, deserialize, diff, serialize
 from tests.fixtures.advanced import Manager, Team, team_members
@@ -85,6 +86,25 @@ def test_parse_temporal_decodes_only_temporal_columns():
             "label": "2026-09-21T11:00:14",
         }
     ]
+
+
+def test_deserialize_failed_load_disposes_its_engine(base, seeded_session, monkeypatch):
+    data = _snapshot(seeded_session, base)
+    data["books"][0]["author_id"] = 999  # FK violation, enforced by the in-memory engine
+
+    engines = []
+    real_new_session = database.new_session
+
+    def spy(b):
+        session = real_new_session(b)
+        engines.append(session.get_bind())
+        return session
+
+    monkeypatch.setattr(database, "new_session", spy)
+    with pytest.raises(IntegrityError):
+        deserialize(data=data, base=base)
+
+    assert "size: 0" in engines[0].pool.status()
 
 
 def test_deserialize_empty_payload(base):
