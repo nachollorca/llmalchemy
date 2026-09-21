@@ -2,7 +2,7 @@
 
 from collections.abc import Generator, Iterator
 from contextlib import AbstractContextManager, nullcontext
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
@@ -74,6 +74,10 @@ class Signal(StrEnum):
 @dataclass(frozen=True)
 class Event:
     """Base class for all events yielded by the agentic loop."""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Flatten the event into a JSON-serializable dict, tagged with its type."""
+        return {"type": type(self).__name__, **asdict(self)}
 
 
 @dataclass(frozen=True)

@@ -1,21 +1,73 @@
 """Unit tests for ``agent.py`` helpers (no loop / no LM)."""
 
+import json
 from typing import Any, cast
 
 import pytest
+from lmdk import UserMessage
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from llmalchemy.agent import (
+    DatabaseChangesEvent,
+    MessageEvent,
     Output,
+    Signal,
+    SignalEvent,
     State,
+    SystemInstructionEvent,
     _build_output_schema,
     _init_namespace,
     _init_session,
 )
 from llmalchemy.code import execute, validate
+from llmalchemy.database import RowUpdate, TableChanges
 from llmalchemy.tools import Tool
 from tests.fixtures.advanced import Manager, team_members
+
+# -- Event.to_dict -----------------------------------------------------
+
+
+def test_event_to_dict_tags_type_and_is_json_serializable():
+    events = [
+        SignalEvent(Signal.EXECUTION),
+        SystemInstructionEvent(content="you are a coding agent"),
+        MessageEvent(UserMessage(content="hello")),
+        DatabaseChangesEvent(
+            changes={
+                "books": TableChanges(
+                    added=[{"id": 1, "title": "The Hobbit"}],
+                    updated=[
+                        RowUpdate(before={"id": 2, "title": "x"}, after={"id": 2, "title": "y"})
+                    ],
+                    deleted=[],
+                )
+            }
+        ),
+    ]
+    for event in events:
+        data = event.to_dict()
+        assert data["type"] == type(event).__name__
+        json.dumps(data)  # plain JSON types, no dataclasses/enums leaking through
+
+
+def test_event_to_dict_flattens_nested_changes():
+    event = DatabaseChangesEvent(
+        changes={
+            "books": TableChanges(
+                added=[{"id": 1}],
+                updated=[RowUpdate(before={"id": 2, "title": "x"}, after={"id": 2, "title": "y"})],
+                deleted=[],
+            )
+        }
+    )
+    changes = event.to_dict()["changes"]
+    assert changes["books"]["added"] == [{"id": 1}]
+    assert changes["books"]["updated"] == [
+        {"before": {"id": 2, "title": "x"}, "after": {"id": 2, "title": "y"}}
+    ]
+    assert changes["books"]["deleted"] == []
+
 
 # -- _build_output_schema ---------------------------------------------
 
