@@ -1,6 +1,6 @@
 [project]
 name = "llmalchemy"
-version = "1.8.0"
+version = "1.9.0"
 description = "A full-access agent pattern."
 requires-python = ">=3.13"
 license = { text = "MIT" }
