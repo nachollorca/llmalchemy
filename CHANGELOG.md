@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v2.0.0 (2026-10-07)
+
+### Features
+
+- **agent**: Drop State, rebuild code namespace on every run
+  ([`91e77a5`](https://github.com/nachollorca/llmalchemy/commit/91e77a507b94c7a8f09d724796a3033c1eb6dd5b))
+
+### Breaking Changes
+
+- **agent**: `State` is removed; `run()` takes `session` and `messages` directly and no longer
+  creates a session when none is given (use `llmalchemy.database.new_session`). Agent-created
+  symbols no longer carry over between runs.
+
+
 ## v1.10.1 (2026-09-21)
 
 ### Bug Fixes
