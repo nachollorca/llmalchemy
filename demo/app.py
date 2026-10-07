@@ -6,8 +6,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from llmalchemy.agent import State
-
 MODELS = [
     "vertex:gemini-3-flash-preview",
     "vertex:gemini-2.5-flash",
@@ -19,15 +17,15 @@ MODELS = [
 
 # ── Session state defaults ──────────────────────────────────────────────────
 
-if "state" not in st.session_state:
+if "session" not in st.session_state:
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
     Base.metadata.create_all(engine)
-    state = State(session=Session(engine))
-    st.session_state.state = state
+    st.session_state.session = Session(engine)
+    st.session_state.messages = []
     st.session_state.tools = [get_author_catalog]
 
 if "chat_log" not in st.session_state:
@@ -44,8 +42,7 @@ with st.sidebar:
     )
 
     if st.button("New Chat", width="stretch"):
-        st.session_state.state.messages.clear()
-        st.session_state.state.namespace.clear()
+        st.session_state.messages.clear()
         st.session_state.chat_log.clear()
         st.rerun()
 

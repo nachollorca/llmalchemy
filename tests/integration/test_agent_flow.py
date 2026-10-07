@@ -4,7 +4,7 @@ These tests exercise the full loop (validation, execution, message
 accumulation, signalling) without ever calling a real model.
 """
 
-from lmdk import UserMessage
+from lmdk import Message, UserMessage
 from pydantic import BaseModel, Field
 
 from llmalchemy.agent import (
@@ -28,12 +28,12 @@ def _messages(events):
 # -- basic flows ------------------------------------------------------
 
 
-def test_single_turn_no_code(base, state, fake_llm):
+def test_single_turn_no_code(base, session, fake_llm):
     fake = fake_llm()
     fake.reply(message="hi")
 
-    state.messages.append(UserMessage("hello"))
-    events = list(run(state=state, base=base, model="fake"))
+    messages: list[Message] = [UserMessage("hello")]
+    events = list(run(session=session, messages=messages, base=base, model="fake"))
 
     # First event is the system instruction, then one completion + message.
     assert isinstance(events[0], SystemInstructionEvent)
@@ -42,13 +42,13 @@ def test_single_turn_no_code(base, state, fake_llm):
     assert len(fake.calls) == 1
 
 
-def test_single_code_turn_mutates_database(base, state, author_cls, fake_llm):
+def test_single_code_turn_mutates_database(base, session, author_cls, fake_llm):
     fake = fake_llm()
     fake.reply(code="session.add(Author(name='X')); session.commit()")
     fake.reply(message="done")
 
-    state.messages.append(UserMessage("add X"))
-    events = list(run(state=state, base=base, model="fake"))
+    messages: list[Message] = [UserMessage("add X")]
+    events = list(run(session=session, messages=messages, base=base, model="fake"))
 
     assert _signals(events) == [
         Signal.COMPLETION,
@@ -56,17 +56,17 @@ def test_single_code_turn_mutates_database(base, state, author_cls, fake_llm):
         Signal.EXECUTION,
         Signal.COMPLETION,
     ]
-    authors = state.session.query(author_cls).all()
+    authors = session.query(author_cls).all()
     assert [a.name for a in authors] == ["X"]
 
 
-def test_rejected_code_feeds_back_reason(base, state, fake_llm):
+def test_rejected_code_feeds_back_reason(base, session, fake_llm):
     fake = fake_llm()
     fake.reply(code="import os")  # forbidden
     fake.reply(message="ok, giving up")
 
-    state.messages.append(UserMessage("do bad things"))
-    events = list(run(state=state, base=base, model="fake"))
+    messages: list[Message] = [UserMessage("do bad things")]
+    events = list(run(session=session, messages=messages, base=base, model="fake"))
 
     # Validation signal appears, execution never does for the rejected call.
     signals = _signals(events)
@@ -79,13 +79,13 @@ def test_rejected_code_feeds_back_reason(base, state, fake_llm):
     assert "Forbidden import" in rejection.content
 
 
-def test_execution_error_is_reported_as_user_message(base, state, fake_llm):
+def test_execution_error_is_reported_as_user_message(base, session, fake_llm):
     fake = fake_llm()
     fake.reply(code="raise RuntimeError('kaboom')")
     fake.reply(message="sorry")
 
-    state.messages.append(UserMessage("run bad code"))
-    events = list(run(state=state, base=base, model="fake"))
+    messages: list[Message] = [UserMessage("run bad code")]
+    events = list(run(session=session, messages=messages, base=base, model="fake"))
 
     traceback_msg = next(
         m
@@ -96,15 +96,15 @@ def test_execution_error_is_reported_as_user_message(base, state, fake_llm):
     assert "kaboom" in traceback_msg.content
 
 
-def test_max_loops_emits_exceeded(base, state, fake_llm, monkeypatch):
+def test_max_loops_emits_exceeded(base, session, fake_llm, monkeypatch):
     monkeypatch.setattr("llmalchemy.agent.MAX_LOOPS", 2)
     fake = fake_llm()
     # Always request more code; loop should cap at 2 iterations.
     for _ in range(5):
         fake.reply(code="x = 1")
 
-    state.messages.append(UserMessage("loop forever"))
-    events = list(run(state=state, base=base, model="fake"))
+    messages: list[Message] = [UserMessage("loop forever")]
+    events = list(run(session=session, messages=messages, base=base, model="fake"))
 
     signals = _signals(events)
     assert signals.count(Signal.EXECUTION) == 2
@@ -114,7 +114,7 @@ def test_max_loops_emits_exceeded(base, state, fake_llm, monkeypatch):
 # -- tools + extensions + persistence --------------------------------
 
 
-def test_tool_is_callable_from_agent_code(base, state, catalog_tool, fake_llm):
+def test_tool_is_callable_from_agent_code(base, session, catalog_tool, fake_llm):
     fake = fake_llm()
     fake.reply(
         code=(
@@ -125,8 +125,10 @@ def test_tool_is_callable_from_agent_code(base, state, catalog_tool, fake_llm):
     )
     fake.reply(message="done")
 
-    state.messages.append(UserMessage("use the tool"))
-    events = list(run(state=state, base=base, model="fake", tools=[catalog_tool]))
+    messages: list[Message] = [UserMessage("use the tool")]
+    events = list(
+        run(session=session, messages=messages, base=base, model="fake", tools=[catalog_tool])
+    )
 
     exec_result = next(
         m
@@ -137,7 +139,7 @@ def test_tool_is_callable_from_agent_code(base, state, catalog_tool, fake_llm):
     assert "B2" in exec_result.content
 
 
-def test_output_extensions_extend_schema_passed_to_complete(base, state, fake_llm):
+def test_output_extensions_extend_schema_passed_to_complete(base, session, fake_llm):
     """The dynamic output schema used by the LM carries the extension fields.
 
     We assert on the schema handed to ``complete`` (recorded by ``FakeLLM``)
@@ -152,10 +154,12 @@ def test_output_extensions_extend_schema_passed_to_complete(base, state, fake_ll
     fake = fake_llm()
     fake.reply(message="hi", thoughts="I think")
 
-    state.messages.append(UserMessage("hello"))
+    messages: list[Message] = [UserMessage("hello")]
     # Drain events defensively; we only care about the first completion call.
     try:
-        for _ in run(state=state, base=base, model="fake", output_extensions=Reasoning):
+        for _ in run(
+            session=session, messages=messages, base=base, model="fake", output_extensions=Reasoning
+        ):
             if fake.calls:
                 break
     except AssertionError:
@@ -167,55 +171,69 @@ def test_output_extensions_extend_schema_passed_to_complete(base, state, fake_ll
     assert list(schema.model_fields.keys()) == ["thoughts", "message", "code"]
 
 
-def test_state_persists_across_runs(base, state, author_cls, fake_llm):
+def test_session_persists_across_runs(base, session, author_cls, fake_llm):
     fake = fake_llm()
     fake.reply(code="session.add(Author(name='first')); session.commit()")
     fake.reply(message="done one")
     fake.reply(code="session.add(Author(name='second')); session.commit()")
     fake.reply(message="done two")
 
-    state.messages.append(UserMessage("add first"))
-    list(run(state=state, base=base, model="fake"))
+    messages: list[Message] = [UserMessage("add first")]
+    list(run(session=session, messages=messages, base=base, model="fake"))
 
-    state.messages.append(UserMessage("add second"))
-    list(run(state=state, base=base, model="fake"))
+    messages.append(UserMessage("add second"))
+    list(run(session=session, messages=messages, base=base, model="fake"))
 
-    names = [a.name for a in state.session.query(author_cls).all()]
+    names = [a.name for a in session.query(author_cls).all()]
     assert names == ["first", "second"]
-    # Namespace was reused: `Author` symbol is still bound.
-    assert state.namespace["Author"] is author_cls
 
 
-def test_emits_database_changes_event(base, state, fake_llm):
+def test_namespace_resets_across_runs(base, session, fake_llm):
+    fake = fake_llm()
+    fake.reply(code="x = 1")
+    fake.reply(message="set")
+    fake.reply(code="print(x)")
+    fake.reply(message="done")
+
+    messages: list[Message] = [UserMessage("set x")]
+    list(run(session=session, messages=messages, base=base, model="fake"))
+
+    messages.append(UserMessage("print x"))
+    list(run(session=session, messages=messages, base=base, model="fake"))
+
+    assert "NameError" in messages[-2].content
+
+
+def test_emits_database_changes_event(base, session, fake_llm):
     fake = fake_llm()
     fake.reply(code="session.add(Author(name='X')); session.commit()")
     fake.reply(message="done")
 
-    state.messages.append(UserMessage("add X"))
-    events = list(run(state=state, base=base, model="fake"))
+    messages: list[Message] = [UserMessage("add X")]
+    events = list(run(session=session, messages=messages, base=base, model="fake"))
 
     event = next(e for e in events if isinstance(e, DatabaseChangesEvent))
     assert event.changes["authors"].added[0]["name"] == "X"
 
 
-def test_database_changes_event_reports_update(base, ready_state, fake_llm):
+def test_database_changes_event_reports_update(base, seeded_session, fake_llm):
     fake = fake_llm()
     fake.reply(code="a = session.query(Author).first(); a.name = 'Renamed'; session.commit()")
     fake.reply(message="done")
 
-    ready_state.messages.append(UserMessage("rename first"))
-    events = list(run(state=ready_state, base=base, model="fake"))
+    messages: list[Message] = [UserMessage("rename first")]
+    events = list(run(session=seeded_session, messages=messages, base=base, model="fake"))
 
     event = next(e for e in events if isinstance(e, DatabaseChangesEvent))
     assert event.changes["authors"].updated[0].after["name"] == "Renamed"
 
 
-def test_no_database_changes_event_for_read_only_run(base, state, fake_llm):
+def test_no_database_changes_event_for_read_only_run(base, session, fake_llm):
     fake = fake_llm()
     fake.reply(code="print('read only')")
     fake.reply(message="done")
 
-    state.messages.append(UserMessage("look"))
-    events = list(run(state=state, base=base, model="fake"))
+    messages: list[Message] = [UserMessage("look")]
+    events = list(run(session=session, messages=messages, base=base, model="fake"))
 
     assert not any(isinstance(e, DatabaseChangesEvent) for e in events)

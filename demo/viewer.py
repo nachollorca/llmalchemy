@@ -5,8 +5,7 @@ from fixtures import Base
 
 st.header(":material/database: Database Viewer")
 
-state = st.session_state.state
-session = state.session
+session = st.session_state.session
 
 # Discover visible tables
 visible: list[tuple[str, type[Base]]] = []

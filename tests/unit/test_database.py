@@ -9,17 +9,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Session
 
 import llmalchemy.database as database
-from llmalchemy.agent import State, _init_session
-from llmalchemy.database import _parse_temporal, deserialize, diff, serialize
+from llmalchemy.database import _parse_temporal, deserialize, diff, new_session, serialize
 from tests.fixtures.advanced import Manager, Team, team_members
 from tests.fixtures.joined import Employee
-
-
-def _agent_session(base):
-    """The session ``agent.run`` creates for itself."""
-    state = State()
-    _init_session(state, base)
-    return state.session
 
 
 def _snapshot(session: Session, base) -> dict[str, list[dict]]:
@@ -30,7 +22,7 @@ def _snapshot(session: Session, base) -> dict[str, list[dict]]:
 
 
 _FK_SESSIONS = [
-    pytest.param(_agent_session, id="agent"),
+    pytest.param(new_session, id="new_session"),
     pytest.param(lambda base: deserialize(data={}, base=base), id="deserialize"),
 ]
 
@@ -45,7 +37,7 @@ def test_serialize_seeded_session(base, seeded_session):
 
 
 def test_serialize_dead_session_returns_none(base, book_cls):
-    session = _agent_session(base)
+    session = new_session(base)
     session.add(book_cls(title="Orphan", author_id=999))
     with pytest.raises(IntegrityError):
         session.flush()
