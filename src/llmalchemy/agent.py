@@ -202,6 +202,7 @@ def run(
     allowed_imports: list[str] | None = None,
     prompt_template: str | Path | None = None,
     output_extensions: type[BaseModel] | None = None,
+    referenceable_tables: list[str] | None = None,
 ) -> Iterator[Event]:
     """Execute the agentic loop.
 
@@ -223,6 +224,9 @@ def run(
             - ``SYMBOLS``: used to show ageent all pre-loaded namespace symbols.
             - ``TOOLS``: usedf to show the agent tool names + short descriptions.
             - ``IMPORTS``: used to show the agent which modules it may import.
+        referenceable_tables: Schema table names the agent may cite inline in its
+            messages with ``[TableName:row_pk]``. Defaults to ``None`` (disabled);
+            unknown names raise ``ValueError``.
 
     Yields:
         ``Event``: system instruction, loop signals, and conversation messages.
@@ -238,6 +242,7 @@ def run(
             allowed_imports,
             prompt_template,
             output_extensions,
+            referenceable_tables,
         )
 
 
@@ -251,6 +256,7 @@ def _run(
     allowed_imports: list[str] | None,
     prompt_template: str | Path | None,
     output_extensions: type[BaseModel] | None,
+    referenceable_tables: list[str] | None = None,
 ) -> Iterator[Event]:
     """Agentic loop body (see :func:`run`)."""
     # Initialize everything
@@ -258,7 +264,9 @@ def _run(
     allowed_imports = ["sqlalchemy"] if allowed_imports is None else allowed_imports
     output_schema = _build_output_schema(output_extensions)
     namespace, descriptions = _init_namespace(session, base, tools)
-    system_instruction = render(base, tools, descriptions, prompt_template, allowed_imports)
+    system_instruction = render(
+        base, tools, descriptions, prompt_template, allowed_imports, referenceable_tables
+    )
     yield SystemInstructionEvent(system_instruction)
     before = serialize(session, base)
 

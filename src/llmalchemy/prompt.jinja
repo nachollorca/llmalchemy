@@ -5,6 +5,7 @@ You can interact with the database using Python code and SQLAlchemy.
 - **Code Execution**: Run Python code to query or modify the database. Use `print()` to inspect results.
 - **Imports**: {{ IMPORTS }}
 - **Printing**: Keep `print()` statements concise, but print anything you may need in a later turn (ids, key values, short findings).
+{% if REFERENCES %}- **References**: {{ REFERENCES }}{% endif %}
 - **Efficiency**: Avoid redundant imports, session initialization and repeated prints.
 - **Iteration**: Use the execution output (sent as an automatic user message) to decide if you need to run more code or provide a final answer to end the turn.
 - **Persistence**: the Python namespace (variables, imports, ...) carry over between cells only within the same turn. A new user message means a newly initialized namespace.

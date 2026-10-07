@@ -4,6 +4,7 @@ These tests exercise the full loop (validation, execution, message
 accumulation, signalling) without ever calling a real model.
 """
 
+import pytest
 from lmdk import Message, UserMessage
 from pydantic import BaseModel, Field
 
@@ -237,3 +238,41 @@ def test_no_database_changes_event_for_read_only_run(base, session, fake_llm):
     events = list(run(session=session, messages=messages, base=base, model="fake"))
 
     assert not any(isinstance(e, DatabaseChangesEvent) for e in events)
+
+
+# -- referenceable tables --------------------------------------------
+
+
+def test_reference_instruction_reaches_system_prompt(base, session, fake_llm):
+    fake = fake_llm()
+    fake.reply(message="hi")
+
+    messages: list[Message] = [UserMessage("hello")]
+    events = list(
+        run(
+            session=session,
+            messages=messages,
+            base=base,
+            model="fake",
+            referenceable_tables=["authors"],
+        )
+    )
+
+    system = next(e for e in events if isinstance(e, SystemInstructionEvent)).content
+    assert "`authors`" in system
+    assert "[TableName:row_pk]" in system
+
+
+def test_unknown_referenceable_table_raises(base, session, fake_llm):
+    fake_llm()
+    messages: list[Message] = [UserMessage("hello")]
+    with pytest.raises(ValueError, match="Unknown referenceable table"):
+        list(
+            run(
+                session=session,
+                messages=messages,
+                base=base,
+                model="fake",
+                referenceable_tables=["nope"],
+            )
+        )
