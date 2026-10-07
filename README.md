@@ -19,7 +19,8 @@ Every **new operation** you want to allow a user to perform on your application'
 The only thing you need to define upfront is your database schema through an sqlalchemy declarative base:
 
 ```python
-from llmalchemy.agent import State, run
+from llmalchemy.agent import run
+from llmalchemy.database import new_session
 from lmdk import UserMessage
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -57,12 +58,10 @@ For the minimal run, append the first message to the conversation and simply ite
 You will receive `Events` with the messages and code results performed by the agent, together with precise signals indicating the agents loop state (waiting for the LM completion, executing code, etc.). If the agent's code modified the database, a final `DatabaseChangesEvent` reports the net additions, updates and deletions made during the run:
 
 ```python
-state = State()
-state.messages.append(
-    UserMessage("Add authors Tolkien and Dhalia de la Cerda, and two books for each.")
-)
+session = new_session(Base)  # in-memory SQLite; pass your own session for a real database
+messages = [UserMessage("Add authors Tolkien and Dhalia de la Cerda, and two books for each.")]
 
-for event in run(state=state, base=Base, model=model):
+for event in run(session=session, messages=messages, base=Base, model=model):
     print(event)
 ```
 
@@ -80,7 +79,7 @@ MessageEvent(message=AssistantMessage(message='Done — added Tolkien and Dhalia
 DatabaseChangesEvent(changes={'authors': TableChanges(added=[{'id': 1, 'name': 'J.R.R. Tolkien'}, {'id': 2, 'name': 'Dhalia de la Cerda'}], updated=[], deleted=[]), 'books': TableChanges(added=[{'id': 1, 'title': 'The Hobbit', 'author_id': 1}, ...], updated=[], deleted=[])})
 ```
 
-The `state` persists across calls, just append a new `UserMessage` and call `run()` again to continue the conversation.
+`run()` appends the new messages to `messages` in place, so to continue the conversation just append a new `UserMessage` and call `run()` again with the same session.
 
 <details>
 <summary>Custom tools</summary>
@@ -99,8 +98,8 @@ def get_author_catalog(author: str, session: Session) -> list[str]:
     return [b.title for b in obj.books] if obj else []
 
 
-state.messages.append(UserMessage("what's the catalog for Dhalia de la Cerda?"))
-for event in run(state=state, base=Base, model=model, tools=[get_author_catalog]):
+messages.append(UserMessage("what's the catalog for Dhalia de la Cerda?"))
+for event in run(session=session, messages=messages, base=Base, model=model, tools=[get_author_catalog]):
     print(event)
 ```
 
@@ -121,6 +120,9 @@ MessageEvent(message=AssistantMessage(message="Dhalia de la Cerda's catalog: 'De
 
 Only the tool name and first docstring line are shown to the agent up-front.
 The agent calls `disclose("get_author_catalog")` to inspect the full signature on demand.
+
+What a tool prints stays in the conversation for later turns. Print a compact summary (counts, ids, the decisive result),
+return the full data, and document both in the docstring, which is what `disclose` shows.
 </details>
 
 <details>
@@ -132,9 +134,9 @@ an explicit list *replaces* the default, so include `"sqlalchemy"` if the
 agent still needs it. Pass `[]` to forbid all imports.
 
 ```python
-state.messages.append(UserMessage("what day is today?"))
+messages.append(UserMessage("what day is today?"))
 for event in run(
-    state=state, base=Base, model=model, allowed_imports=["sqlalchemy", "datetime"]
+    session=session, messages=messages, base=Base, model=model, allowed_imports=["sqlalchemy", "datetime"]
 ):
     print(event)
 ```
@@ -167,7 +169,8 @@ It is recommended that the template contains vars {{ SCHEMA }}, {{ SYMBOLS }}, {
 ```python
 prompt = """Write python code to answer user requests. You have access to {{ SCHEMA }}, {{ SYMBOLS }} and {{ TOOLS }}."""
 for event in run(
-    state=state,
+    session=session,
+    messages=messages,
     base=Base,
     model=model,
     prompt_template="path/to/prompt.jinja",
@@ -198,7 +201,8 @@ class Reasoning(BaseModel):
 
 
 for event in run(
-    state=state,
+    session=session,
+    messages=messages,
     base=Base,
     model=model,
     output_extensions=Reasoning,
@@ -260,7 +264,7 @@ flowchart TD
 
 2. **Agentic loop** (`agent.py`): The LM produces structured output — a message and optional Python code. If code is present, it's validated, executed, and the result is fed back as a user message. The loop continues until the LM responds without code or hits `MAX_LOOPS`.
 
-3. **Sandboxed execution** (`code.py`): An AST pass blocks dangerous builtins (`exec`, `eval`, `open`…), forbidden modules (`os`, `subprocess`…), dangerous dunder access, and enforces an import whitelist. Safe code runs in a persistent namespace with stdout captured.
+3. **Sandboxed execution** (`code.py`): An AST pass blocks dangerous builtins (`exec`, `eval`, `open`…), forbidden modules (`os`, `subprocess`…), dangerous dunder access, and enforces an import whitelist. Safe code runs in a namespace shared by every cell of the run, with stdout captured.
 
 4. **Optional tools** (`tools.py`): Developers can register custom functions with the `@tool` decorator. Only tool names and one-liners appear in the prompt — the LM calls `disclose(name)` to see full signatures on demand, keeping the context window lean.
 

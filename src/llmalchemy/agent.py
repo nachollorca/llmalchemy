@@ -2,7 +2,7 @@
 
 from collections.abc import Generator, Iterator
 from contextlib import AbstractContextManager, nullcontext
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
@@ -18,7 +18,6 @@ from .database import (
     association_tables,
     diff,
     mapped_classes,
-    new_session,
     serialize,
 )
 from .tools import Tool, make_disclose_fn
@@ -38,21 +37,6 @@ def _run_span(model: str) -> AbstractContextManager[Any]:
     if _tracer is None:
         return nullcontext()
     return _tracer.start_as_current_span(f"agent run {model}")
-
-
-@dataclass
-class State:
-    """Contains the different objects whose state is modified through the agentic loop.
-
-    Attributes:
-        session: the sqlalchemy database connection
-        messages: the conversation history
-        namespace: symbols of the code environment that the agent uses
-    """
-
-    session: Session | None = None
-    messages: list[Message] = field(default_factory=list)
-    namespace: dict = field(default_factory=dict)
 
 
 class Output(BaseModel):
@@ -109,7 +93,7 @@ class DatabaseChangesEvent(Event):
 
 
 def _complete(
-    state: State,
+    messages: list[Message],
     model: str,
     system_instruction: str,
     output_schema: type[Output],
@@ -119,12 +103,12 @@ def _complete(
     yield SignalEvent(Signal.COMPLETION)
     response = complete(
         model=model,
-        prompt=state.messages,
+        prompt=messages,
         system_instruction=system_instruction,
         output_schema=output_schema,
         thinking_effort=thinking_effort,
     )
-    state.messages.append(response.message)
+    messages.append(response.message)
     yield MessageEvent(response.message)
     assert isinstance(response.output, Output)
     return response.output
@@ -157,43 +141,37 @@ def _build_output_schema(output_extensions: type[BaseModel] | None) -> type[Outp
     return cast(Any, create_model)("Output", **extension_fields, **base_fields)
 
 
-def _init_session(state: State, base: type[DeclarativeBase]) -> None:
-    """Initialize the SQLAlchemy session when missing (first call)."""
-    if state.session is None:
-        state.session = new_session(base)
-
-
 def _init_namespace(
-    state: State,
+    session: Session,
     base: type[DeclarativeBase],
     tools: list[Tool],
-) -> dict[str, str]:
-    """Populate or refresh the agent code execution namespace.
+) -> tuple[dict, dict[str, str]]:
+    """Build a fresh code execution namespace for one run.
 
-    On the first call the namespace is empty, so all symbols are injected:
-    ``session``, ORM model classes, tool functions, and ``disclose``.
-    On follow-up calls only ``session`` is refreshed because the database
-    may have changed between calls (user side).
+    Injects ``session``, ORM model classes, association tables, tool functions,
+    and ``disclose``.
 
     Returns:
-        A ``{name: description}`` dict of every injected **infrastructure**
-        symbol.  Tool symbols are excluded — their source of truth is the
-        ``Tool`` object itself, rendered separately by ``_render_tools_summary``.
+        The namespace, and a ``{name: description}`` dict of every injected
+        **infrastructure** symbol.  Tool symbols are excluded — their source of
+        truth is the ``Tool`` object itself, rendered separately by
+        ``_render_tools_summary``.
     """
+    namespace: dict = {}
     descriptions: dict[str, str] = {}
 
-    state.namespace["session"] = state.session
+    namespace["session"] = session
     descriptions["session"] = "a `sqlalchemy.orm.Session` connected to the database."
 
     orm_classes = mapped_classes(base)
     for cls in orm_classes:
-        state.namespace[cls.__name__] = cls
+        namespace[cls.__name__] = cls
     if orm_classes:
         names = ", ".join(cls.__name__ for cls in orm_classes)
         descriptions[names] = "ORM model classes (see schema above)."
 
     tables = association_tables(base)
-    state.namespace.update(tables)
+    namespace.update(tables)
     if tables:
         names = ", ".join(tables)
         descriptions[names] = (
@@ -202,20 +180,21 @@ def _init_namespace(
         )
 
     for t in tools:
-        state.namespace[t.name] = t.fn
+        namespace[t.name] = t.fn
 
     if tools:
-        state.namespace["disclose"] = make_disclose_fn(tools)
+        namespace["disclose"] = make_disclose_fn(tools)
         descriptions["disclose"] = (
             "`disclose(name: str) -> str` — prints the full signature"
             " and docstring of a tool. Call it before using a tool you haven't seen yet."
         )
 
-    return descriptions
+    return namespace, descriptions
 
 
 def run(
-    state: State,
+    session: Session,
+    messages: list[Message],
     base: type[DeclarativeBase],
     model: str,
     thinking_effort: ThinkingEffort = "high",
@@ -230,7 +209,8 @@ def run(
     The loop ends as soon as the assistant responds without code. Turn is returned to user.
 
     Args:
-        state: Conversation, database state and python namespace (mutated in place).
+        session: SQLAlchemy session the agent's code reads and writes.
+        messages: Conversation history; new messages are appended in place.
         base: SQLAlchemy declarative base that defines the db schema.
         model: Model identifier forwarded to ``complete()``.
         tools: User-provided tools the agent can call in generated code.
@@ -249,7 +229,8 @@ def run(
     """
     with _run_span(model):
         yield from _run(
-            state,
+            session,
+            messages,
             base,
             model,
             thinking_effort,
@@ -261,7 +242,8 @@ def run(
 
 
 def _run(
-    state: State,
+    session: Session,
+    messages: list[Message],
     base: type[DeclarativeBase],
     model: str,
     thinking_effort: ThinkingEffort,
@@ -275,14 +257,15 @@ def _run(
     tools = tools or []
     allowed_imports = ["sqlalchemy"] if allowed_imports is None else allowed_imports
     output_schema = _build_output_schema(output_extensions)
-    _init_session(state, base)
-    descriptions = _init_namespace(state, base, tools)
+    namespace, descriptions = _init_namespace(session, base, tools)
     system_instruction = render(base, tools, descriptions, prompt_template, allowed_imports)
     yield SystemInstructionEvent(system_instruction)
-    before = serialize(state.session, base)
+    before = serialize(session, base)
 
     # First call to the model
-    output = yield from _complete(state, model, system_instruction, output_schema, thinking_effort)
+    output = yield from _complete(
+        messages, model, system_instruction, output_schema, thinking_effort
+    )
     code = output.code
 
     # Loop until model is over with the task
@@ -296,25 +279,25 @@ def _run(
         yield SignalEvent(Signal.VALIDATION)
         if reason := validate(source=code, allowed_imports=allowed_imports):
             message = UserMessage(f"Code rejected: {reason}")
-            state.messages.append(message)
+            messages.append(message)
             yield MessageEvent(message)
             output = yield from _complete(
-                state, model, system_instruction, output_schema, thinking_effort
+                messages, model, system_instruction, output_schema, thinking_effort
             )
             code = output.code
             continue
 
         yield SignalEvent(Signal.EXECUTION)
-        result = execute(source=code, namespace=state.namespace)
+        result = execute(source=code, namespace=namespace)
         message = UserMessage(f"Execution result:\n\n```\n{result}\n```")
-        state.messages.append(message)
+        messages.append(message)
         yield MessageEvent(message)
         output = yield from _complete(
-            state, model, system_instruction, output_schema, thinking_effort
+            messages, model, system_instruction, output_schema, thinking_effort
         )
         code = output.code
 
-    after = serialize(state.session, base)
+    after = serialize(session, base)
     if before and after:
         changes = diff(before, after, base)
         if changes:

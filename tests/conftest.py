@@ -15,7 +15,7 @@ from lmdk.datatypes import CompletionResponse
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from llmalchemy.agent import Output, State
+from llmalchemy.agent import Output
 from tests.fixtures.advanced import AdvancedBase
 from tests.fixtures.joined import JoinedBase
 from tests.fixtures.schema import Author, Base, Book, get_author_catalog
@@ -82,21 +82,6 @@ def seeded_session(session: Session) -> Session:
     session.add_all([tolkien, dhalia])
     session.commit()
     return session
-
-
-# -- agent state -------------------------------------------------------
-
-
-@pytest.fixture
-def state() -> State:
-    """A fresh ``State`` with no session attached."""
-    return State()
-
-
-@pytest.fixture
-def ready_state(seeded_session: Session) -> State:
-    """A ``State`` already wired to a seeded session (skips ``_init_session``)."""
-    return State(session=seeded_session)
 
 
 # -- fake LM -----------------------------------------------------------

@@ -4,8 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from llmalchemy.agent import State, _init_namespace
+from llmalchemy.agent import _init_namespace
 from llmalchemy.context import LLMAlchemyPromptWarning, render
+from llmalchemy.database import new_session
 
 _MINIMAL_TEMPLATE = (
     "SCHEMA:\n{{ SCHEMA }}\nSYMBOLS:\n{{ SYMBOLS }}\nTOOLS:\n{{ TOOLS }}\nIMPORTS:\n{{ IMPORTS }}\n"
@@ -83,7 +84,7 @@ def test_render_symbols_formats_as_markdown_bullets(base):
 
 
 def test_render_symbols_list_inherited_classes_and_junctions(advanced_base):
-    descriptions = _init_namespace(State(), advanced_base, [])
+    _, descriptions = _init_namespace(new_session(advanced_base), advanced_base, [])
     out = render(base=advanced_base, tools=[], descriptions=descriptions)
 
     symbols = [line for line in out.splitlines() if line.startswith("- `")]

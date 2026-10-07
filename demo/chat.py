@@ -34,7 +34,8 @@ def _render_and_log(kind: str, text: str) -> None:
 
 st.header(":material/chat: Chat")
 chat_log: list[dict] = st.session_state.chat_log
-state = st.session_state.state
+session = st.session_state.session
+messages = st.session_state.messages
 model = st.session_state.model
 tools = st.session_state.tools
 
@@ -43,12 +44,12 @@ for entry in chat_log:
 
 if prompt := st.chat_input("Message the agent…"):
     _render_and_log("user", prompt)
-    state.messages.append(UserMessage(prompt))
+    messages.append(UserMessage(prompt))
 
     status = st.empty()
     status.info(":material/lightbulb: Thinking…")
 
-    for event in run(state=state, base=Base, model=model, tools=st.session_state.tools):
+    for event in run(session=session, messages=messages, base=Base, model=model, tools=tools):
         match event:
             case SignalEvent(signal=signal):
                 status.info(SIGNAL_LABELS[signal])

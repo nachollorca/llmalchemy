@@ -1,12 +1,10 @@
 """Unit tests for ``agent.py`` helpers (no loop / no LM)."""
 
 import json
-from typing import Any, cast
 
 import pytest
 from lmdk import UserMessage
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 
 from llmalchemy.agent import (
     DatabaseChangesEvent,
@@ -14,14 +12,12 @@ from llmalchemy.agent import (
     Output,
     Signal,
     SignalEvent,
-    State,
     SystemInstructionEvent,
     _build_output_schema,
     _init_namespace,
-    _init_session,
 )
 from llmalchemy.code import execute, validate
-from llmalchemy.database import RowUpdate, TableChanges
+from llmalchemy.database import RowUpdate, TableChanges, new_session
 from llmalchemy.tools import Tool
 from tests.fixtures.advanced import Manager, team_members
 
@@ -99,36 +95,17 @@ def test_build_output_schema_preserves_base_fields():
     assert instance.code == "c"
 
 
-# -- _init_session ----------------------------------------------------
-
-
-def test_init_session_creates_sqlite_when_missing(base):
-    state = State()
-    _init_session(state, base)
-    assert isinstance(state.session, Session)
-    # Schema was applied: querying the mapped classes doesn't error.
-    for cls in base.__subclasses__():
-        assert state.session.query(cls).all() == []
-
-
-def test_init_session_reuses_existing_session(base, seeded_session):
-    state = State(session=seeded_session)
-    _init_session(state, base)
-    assert state.session is seeded_session
-
-
 # -- _init_namespace --------------------------------------------------
 
 
 def test_init_namespace_injects_all_symbols(base, seeded_session, catalog_tool):
-    state = State(session=seeded_session)
-    descriptions = _init_namespace(state, base, [catalog_tool])
+    namespace, descriptions = _init_namespace(seeded_session, base, [catalog_tool])
 
-    assert state.namespace["session"] is seeded_session
+    assert namespace["session"] is seeded_session
     for cls in base.__subclasses__():
-        assert state.namespace[cls.__name__] is cls
-    assert state.namespace["get_author_catalog"] is catalog_tool.fn
-    assert callable(state.namespace["disclose"])
+        assert namespace[cls.__name__] is cls
+    assert namespace["get_author_catalog"] is catalog_tool.fn
+    assert callable(namespace["disclose"])
 
     assert "session" in descriptions
     assert "disclose" in descriptions
@@ -137,40 +114,25 @@ def test_init_namespace_injects_all_symbols(base, seeded_session, catalog_tool):
 
 
 def test_init_namespace_without_tools_skips_disclose(base, seeded_session):
-    state = State(session=seeded_session)
-    descriptions = _init_namespace(state, base, [])
-    assert "disclose" not in state.namespace
+    namespace, descriptions = _init_namespace(seeded_session, base, [])
+    assert "disclose" not in namespace
     assert "disclose" not in descriptions
 
 
-def test_init_namespace_second_call_refreshes_session(base, seeded_session):
-    state = State(session=seeded_session)
-    _init_namespace(state, base, [])
-    # Simulate a user-side db swap between runs.
-    new_session = object()
-    state.session = cast(Any, new_session)
-    _init_namespace(state, base, [])
-    assert state.namespace["session"] is new_session
-
-
 def test_init_namespace_injects_inherited_classes_and_junctions(advanced_base):
-    state = State()
-    _init_session(state, advanced_base)
-    descriptions = _init_namespace(state, advanced_base, [])
+    namespace, descriptions = _init_namespace(new_session(advanced_base), advanced_base, [])
 
     # ``Manager`` is a grandchild of the base, invisible to ``__subclasses__()``.
-    assert state.namespace["Manager"] is Manager
+    assert namespace["Manager"] is Manager
     # Junctions are bound to their Python variable name, not their table name.
-    assert state.namespace["team_members"] is team_members
-    assert "memberships" not in state.namespace
+    assert namespace["team_members"] is team_members
+    assert "memberships" not in namespace
     assert any("Manager" in name for name in descriptions)
     assert any("team_members" in name for name in descriptions)
 
 
 def test_agent_code_can_insert_into_junction(advanced_base):
-    state = State()
-    _init_session(state, advanced_base)
-    _init_namespace(state, advanced_base, [])
+    namespace, _ = _init_namespace(new_session(advanced_base), advanced_base, [])
     source = (
         "from sqlalchemy import insert, select\n"
         "session.add_all([Manager(name='Ada'), Team(name='Core')])\n"
@@ -179,7 +141,7 @@ def test_agent_code_can_insert_into_junction(advanced_base):
         "print(session.execute(select(team_members)).all())\n"
     )
     assert validate(source=source, allowed_imports=["sqlalchemy"]) == ""
-    assert execute(source=source, namespace=state.namespace).strip() == "[(1, 1)]"
+    assert execute(source=source, namespace=namespace).strip() == "[(1, 1)]"
 
 
 # -- run() early-exits ------------------------------------------------
