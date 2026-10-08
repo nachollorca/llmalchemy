@@ -187,6 +187,23 @@ SystemInstructionEvent(content='Write python code to answer user requests. You h
 </details>
 
 <details>
+<summary>Extend the system prompt</summary>
+Keep the default template and append your own instructions at the very end.
+
+```python
+for event in run(
+    session=session,
+    messages=messages,
+    base=Base,
+    model=model,
+    system_prompt_extension="Always answer in Spanish and cite every row you touch.",
+):
+    print(event)
+```
+
+</details>
+
+<details>
 <summary>Output extensions</summary>
 By default, the agent responds with a `message` for the user and optional `code` to perform actions.
 You can specify any additional fields for the LM to fill.

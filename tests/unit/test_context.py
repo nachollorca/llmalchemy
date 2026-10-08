@@ -69,6 +69,16 @@ def test_render_references_lists_allowed_tables(base):
     assert "[authors:row_pk]" in out
 
 
+def test_render_appends_system_prompt_extension_at_the_end(base):
+    out = render(base=base, tools=[], system_prompt_extension="Always answer in Spanish.")
+    assert out.rstrip().endswith("Always answer in Spanish.")
+
+
+def test_render_system_prompt_extension_absent_by_default(base):
+    out = render(base=base, tools=[])
+    assert "Always answer" not in out
+
+
 def test_render_references_absent_by_default(base):
     out = render(base=base, tools=[])
     assert "row_pk" not in out
