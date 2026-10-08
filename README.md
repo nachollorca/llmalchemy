@@ -164,10 +164,10 @@ MessageEvent(message=UserMessage(content="Code rejected: Forbidden import: os"))
 <details>
 <summary>Custom system prompt</summary>
 You can pass a Jinja template to override the default one (see `src/llmalchemy/prompt.jinja`).
-It is recommended that the template contains vars {{ SCHEMA }}, {{ SYMBOLS }}, {{ TOOLS }} and {{ IMPORTS }}.
+It is recommended that the template contains vars {{ SCHEMA }}, {{ TOOLS }} and {{ IMPORTS }}.
 
 ```python
-prompt = """Write python code to answer user requests. You have access to {{ SCHEMA }}, {{ SYMBOLS }} and {{ TOOLS }}."""
+prompt = """Write python code to answer user requests. You have access to {{ SCHEMA }} and {{ TOOLS }}."""
 for event in run(
     session=session,
     messages=messages,
@@ -181,7 +181,7 @@ for event in run(
 The emitted events are the same as in the minimal example; only the `SystemInstructionEvent` content changes to reflect your custom template:
 
 ```text
-SystemInstructionEvent(content='Write python code to answer user requests. You have access to <schema...>, <symbols...> and <tools...>')
+SystemInstructionEvent(content='Write python code to answer user requests. You have access to <schema...> and <tools...>')
 ```
 
 </details>
