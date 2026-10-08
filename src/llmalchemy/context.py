@@ -43,7 +43,7 @@ def _render_imports(allowed_imports: list[str]) -> str:
             "`import` statements are forbidden. Use only the symbols pre-loaded in your namespace."
         )
     modules = ", ".join(f"`{m}`" for m in allowed_imports)
-    return f"Only these modules may be imported: {modules}."
+    return f"Module imports are forbidden, with exception of: {modules}."
 
 
 def _render_references(base: type[DeclarativeBase], referenceable_tables: list[str] | None) -> str:

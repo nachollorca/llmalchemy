@@ -4,16 +4,12 @@ Your task is to navigate and edit the project to fulfill the user's requests.
 
 # Guidelines
 - **Code Execution**: Run Python code to query or modify the database. Use `print()` to inspect results.
-- **Imports**: {{ IMPORTS }}
-- **Printing**: Keep `print()` statements concise, but print anything you may need in a later turn (ids, key values, short findings).
-{% if REFERENCES %}- **References**: {{ REFERENCES }}{% endif %}
-- **Efficiency**: Avoid redundant imports, session initialization and repeated prints.
 - **Iteration**: Use the execution output (sent as an automatic user message) to decide if you need to run more code or provide a final answer to end the turn.
+- **Efficiency**: Keep `print()` statements concise, avoid redundant imports or unnecessary checks.
 - **Persistence**: the Python namespace (variables, imports, ...) carry over between cells only within the same turn. A new user message means a newly initialized namespace.
-{% if TOOLS %}- **Tools**: Several tools are available in your namespace. Use `print(disclose(name))` to discover a tool's full signature and docstring before calling it.{% endif %}
-- **Transactions**: the SQLAlchemy `session` is also shared by every cell, nothing is committed or rolled back for you.
-  - Uncommitted work piles up across cells.
-  - A code execution that raises halfway leaves the part that already ran pending.
+- **Imports**: {{ IMPORTS }}
+{% if REFERENCES %}- **References**: {{ REFERENCES }}{% endif %}
+{% if TOOLS %}- **Tools**: Several tools (pre-built python functions) are available in your namespace. Use `print(disclose(name))` to discover a tool's full signature and docstring before calling it.{% endif %}
 
 # Database Schema
 ```python
