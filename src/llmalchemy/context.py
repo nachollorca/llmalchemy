@@ -51,6 +51,29 @@ def _render_imports(allowed_imports: list[str]) -> str:
     return f"Only these modules may be imported: {modules}."
 
 
+def _render_references(base: type[DeclarativeBase], referenceable_tables: list[str] | None) -> str:
+    """Render the row-reference instruction for the allowed tables.
+
+    Table names are validated against the schema so a typo raises instead of
+    silently letting the agent cite a table that does not exist.
+    """
+    if not referenceable_tables:
+        return ""
+    known = base.metadata.tables
+    unknown = [name for name in referenceable_tables if name not in known]
+    if unknown:
+        raise ValueError(
+            f"Unknown referenceable table(s): {', '.join(unknown)}. "
+            f"Available tables: {', '.join(sorted(known))}."
+        )
+    names = ", ".join(f"`{name}`" for name in referenceable_tables)
+    return (
+        f"You can reference specific rows in {names} by inlining "
+        f"`[{referenceable_tables[0]}:row_pk]` in your message to the user, "
+        "where `row_pk` is the row's primary key value."
+    )
+
+
 def _check_markers(source: str) -> None:
     """Warn for each required Jinja variable missing from the raw template source."""
     for marker in _REQUIRED_MARKERS:
@@ -69,6 +92,7 @@ def render(
     descriptions: dict[str, str],
     template: str | Path | None = None,
     allowed_imports: list[str] | None = None,
+    referenceable_tables: list[str] | None = None,
 ) -> str:
     """Build the system instruction for the LM with all context parts.
 
@@ -81,19 +105,14 @@ def render(
             file, or ``None`` to use the shipped default.
         allowed_imports: Modules the agent may import. ``None`` or an empty
             list means imports are forbidden.
+        referenceable_tables: Schema table names the agent may cite inline,
+            e.g. ``[authors:1]``. ``None`` means citations are disabled.
     """
     if template is None:
         path: Path = _TEMPLATE_PATH
         source = path.read_text()
-        _check_markers(source)
-        return render_template(
-            template=source,
-            SCHEMA=_render_schema_source(base=base),
-            SYMBOLS=_render_symbols(descriptions),
-            TOOLS=_render_tools_summary(tools),
-            IMPORTS=_render_imports(allowed_imports or []),
-        )
-    source = template.read_text() if isinstance(template, Path) else template
+    else:
+        source = template.read_text() if isinstance(template, Path) else template
     _check_markers(source)
     return render_template(
         template=source,
@@ -101,4 +120,5 @@ def render(
         SYMBOLS=_render_symbols(descriptions),
         TOOLS=_render_tools_summary(tools),
         IMPORTS=_render_imports(allowed_imports or []),
+        REFERENCES=_render_references(base, referenceable_tables),
     )
