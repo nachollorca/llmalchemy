@@ -99,7 +99,7 @@ def test_build_output_schema_preserves_base_fields():
 
 
 def test_init_namespace_injects_all_symbols(base, seeded_session, catalog_tool):
-    namespace, descriptions = _init_namespace(seeded_session, base, [catalog_tool])
+    namespace = _init_namespace(seeded_session, base, [catalog_tool])
 
     assert namespace["session"] is seeded_session
     for cls in base.__subclasses__():
@@ -107,32 +107,24 @@ def test_init_namespace_injects_all_symbols(base, seeded_session, catalog_tool):
     assert namespace["get_author_catalog"] is catalog_tool.fn
     assert callable(namespace["disclose"])
 
-    assert "session" in descriptions
-    assert "disclose" in descriptions
-    # Tool names are NOT in descriptions (they're rendered separately).
-    assert "get_author_catalog" not in descriptions
-
 
 def test_init_namespace_without_tools_skips_disclose(base, seeded_session):
-    namespace, descriptions = _init_namespace(seeded_session, base, [])
+    namespace = _init_namespace(seeded_session, base, [])
     assert "disclose" not in namespace
-    assert "disclose" not in descriptions
 
 
 def test_init_namespace_injects_inherited_classes_and_junctions(advanced_base):
-    namespace, descriptions = _init_namespace(new_session(advanced_base), advanced_base, [])
+    namespace = _init_namespace(new_session(advanced_base), advanced_base, [])
 
     # ``Manager`` is a grandchild of the base, invisible to ``__subclasses__()``.
     assert namespace["Manager"] is Manager
     # Junctions are bound to their Python variable name, not their table name.
     assert namespace["team_members"] is team_members
     assert "memberships" not in namespace
-    assert any("Manager" in name for name in descriptions)
-    assert any("team_members" in name for name in descriptions)
 
 
 def test_agent_code_can_insert_into_junction(advanced_base):
-    namespace, _ = _init_namespace(new_session(advanced_base), advanced_base, [])
+    namespace = _init_namespace(new_session(advanced_base), advanced_base, [])
     source = (
         "from sqlalchemy import insert, select\n"
         "session.add_all([Manager(name='Ada'), Team(name='Core')])\n"

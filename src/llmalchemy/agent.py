@@ -145,51 +145,28 @@ def _init_namespace(
     session: Session,
     base: type[DeclarativeBase],
     tools: list[Tool],
-) -> tuple[dict, dict[str, str]]:
+) -> dict:
     """Build a fresh code execution namespace for one run.
 
     Injects ``session``, ORM model classes, association tables, tool functions,
     and ``disclose``.
-
-    Returns:
-        The namespace, and a ``{name: description}`` dict of every injected
-        **infrastructure** symbol.  Tool symbols are excluded — their source of
-        truth is the ``Tool`` object itself, rendered separately by
-        ``_render_tools_summary``.
     """
     namespace: dict = {}
-    descriptions: dict[str, str] = {}
 
     namespace["session"] = session
-    descriptions["session"] = "a `sqlalchemy.orm.Session` connected to the database."
 
-    orm_classes = mapped_classes(base)
-    for cls in orm_classes:
+    for cls in mapped_classes(base):
         namespace[cls.__name__] = cls
-    if orm_classes:
-        names = ", ".join(cls.__name__ for cls in orm_classes)
-        descriptions[names] = "ORM model classes (see schema above)."
 
-    tables = association_tables(base)
-    namespace.update(tables)
-    if tables:
-        names = ", ".join(tables)
-        descriptions[names] = (
-            "`sqlalchemy.Table` association objects for many-to-many junctions,"
-            " usable directly (e.g. `session.execute(insert(table), rows)`)."
-        )
+    namespace.update(association_tables(base))
 
     for t in tools:
         namespace[t.name] = t.fn
 
     if tools:
         namespace["disclose"] = make_disclose_fn(tools)
-        descriptions["disclose"] = (
-            "`disclose(name: str) -> str` — prints the full signature"
-            " and docstring of a tool. Call it before using a tool you haven't seen yet."
-        )
 
-    return namespace, descriptions
+    return namespace
 
 
 def run(
@@ -220,9 +197,8 @@ def run(
         output_extensions: Optional Pydantic model to force in the LM structured output.
         thinking_effort: Level of thinking for provider-native reasoning tokens.
         prompt_template: Custom jinja system prompt. Should contain placeholders for:
-            - ``SCHEMA``: used to show agent the source code of ORM classes
-            - ``SYMBOLS``: used to show ageent all pre-loaded namespace symbols.
-            - ``TOOLS``: usedf to show the agent tool names + short descriptions.
+            - ``SCHEMA``: used to show the agent the source code of the schema module.
+            - ``TOOLS``: used to show the agent tool names + short descriptions.
             - ``IMPORTS``: used to show the agent which modules it may import.
         referenceable_tables: Schema table names the agent may cite inline in its
             messages, e.g. ``[authors:1]``. Defaults to ``None`` (disabled);
@@ -263,10 +239,8 @@ def _run(
     tools = tools or []
     allowed_imports = ["sqlalchemy"] if allowed_imports is None else allowed_imports
     output_schema = _build_output_schema(output_extensions)
-    namespace, descriptions = _init_namespace(session, base, tools)
-    system_instruction = render(
-        base, tools, descriptions, prompt_template, allowed_imports, referenceable_tables
-    )
+    namespace = _init_namespace(session, base, tools)
+    system_instruction = render(base, tools, prompt_template, allowed_imports, referenceable_tables)
     yield SystemInstructionEvent(system_instruction)
     before = serialize(session, base)
 
