@@ -69,7 +69,8 @@ def _render_references(base: type[DeclarativeBase], referenceable_tables: list[s
     names = ", ".join(f"`{name}`" for name in referenceable_tables)
     return (
         f"You can reference specific rows in {names} by inlining "
-        "`[TableName:row_pk]` in your message to the user."
+        f"`[{referenceable_tables[0]}:row_pk]` in your message to the user, "
+        "where `row_pk` is the row's primary key value."
     )
 
 
@@ -104,8 +105,8 @@ def render(
             file, or ``None`` to use the shipped default.
         allowed_imports: Modules the agent may import. ``None`` or an empty
             list means imports are forbidden.
-        referenceable_tables: Schema table names the agent may cite inline
-            with ``[TableName:row_pk]``. ``None`` means citations are disabled.
+        referenceable_tables: Schema table names the agent may cite inline,
+            e.g. ``[authors:1]``. ``None`` means citations are disabled.
     """
     if template is None:
         path: Path = _TEMPLATE_PATH

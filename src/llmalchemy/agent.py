@@ -225,7 +225,7 @@ def run(
             - ``TOOLS``: usedf to show the agent tool names + short descriptions.
             - ``IMPORTS``: used to show the agent which modules it may import.
         referenceable_tables: Schema table names the agent may cite inline in its
-            messages with ``[TableName:row_pk]``. Defaults to ``None`` (disabled);
+            messages, e.g. ``[authors:1]``. Defaults to ``None`` (disabled);
             unknown names raise ``ValueError``.
 
     Yields:
@@ -275,6 +275,8 @@ def _run(
         messages, model, system_instruction, output_schema, thinking_effort
     )
     code = output.code
+
+    # Note: agent can inline cite tables, we should verify that they are valid (issue 30)
 
     # Loop until model is over with the task
     loops = 0

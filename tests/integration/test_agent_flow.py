@@ -260,7 +260,7 @@ def test_reference_instruction_reaches_system_prompt(base, session, fake_llm):
 
     system = next(e for e in events if isinstance(e, SystemInstructionEvent)).content
     assert "`authors`" in system
-    assert "[TableName:row_pk]" in system
+    assert "[authors:row_pk]" in system
 
 
 def test_unknown_referenceable_table_raises(base, session, fake_llm):

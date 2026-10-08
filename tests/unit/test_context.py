@@ -76,12 +76,13 @@ def test_render_references_lists_allowed_tables(base):
     out = render(base=base, tools=[], descriptions={}, referenceable_tables=["authors", "books"])
     assert "`authors`" in out
     assert "`books`" in out
-    assert "[TableName:row_pk]" in out
+    # Lowercase concrete example, matching the snake_case table names.
+    assert "[authors:row_pk]" in out
 
 
 def test_render_references_absent_by_default(base):
     out = render(base=base, tools=[], descriptions={})
-    assert "[TableName:row_pk]" not in out
+    assert "row_pk" not in out
 
 
 def test_render_references_rejects_unknown_table(base):
