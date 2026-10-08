@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v3.0.0 (2026-10-08)
+
+### Bug Fixes
+
+- **prompt**: Reorder and remove instructions
+  ([`cb6a564`](https://github.com/nachollorca/llmalchemy/commit/cb6a56450b3f3588aef6a5dfb2d60319ed19a4dd))
+
+### Features
+
+- **prompt**: Render whole schema module, drop the symbols list
+  ([`8e7d347`](https://github.com/nachollorca/llmalchemy/commit/8e7d347f89bacc933308aadf439b09e10e959a5f))
+
+
 ## v2.1.0 (2026-10-08)
 
 ### Bug Fixes
