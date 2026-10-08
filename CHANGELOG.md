@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v2.1.0 (2026-10-08)
+
+### Bug Fixes
+
+- **prompt**: Improve order and wording in guidelines
+  ([`8c2aebf`](https://github.com/nachollorca/llmalchemy/commit/8c2aebff1f070b078aaa0523124e3e78d543eefd))
+
+- **references**: Show lowercase table name in citation example
+  ([`53da0f3`](https://github.com/nachollorca/llmalchemy/commit/53da0f32ebff05459990e1bb783ba812011d802a))
+
+### Features
+
+- **references**: Implement in-validation and prompt instruction
+  ([`3980f71`](https://github.com/nachollorca/llmalchemy/commit/3980f7130a65ee43acb09793b0abcb05fd604c5b))
+
+
 ## v2.0.0 (2026-10-07)
 
 ### Features
