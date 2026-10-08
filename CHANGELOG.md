@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v3.1.0 (2026-10-08)
+
+### Bug Fixes
+
+- **prompt**: Remove redundancy regarding tools and include `disclose` reference at the very end
+  ([`ff995c3`](https://github.com/nachollorca/llmalchemy/commit/ff995c343136dc8d2ce83bacdea8edfaa0760c7b))
+
+### Features
+
+- **prompt**: Allow appending free text to the system instruction
+  ([`b725b1d`](https://github.com/nachollorca/llmalchemy/commit/b725b1d6c3800f5c81a831863e55e11b6b34426a))
+
+
 ## v3.0.0 (2026-10-08)
 
 ### Bug Fixes
