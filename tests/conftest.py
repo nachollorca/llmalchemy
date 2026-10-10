@@ -19,6 +19,7 @@ from llmalchemy.agent import Output
 from tests.fixtures.advanced import AdvancedBase
 from tests.fixtures.joined import JoinedBase
 from tests.fixtures.schema import Author, Base, Book, get_author_catalog
+from tests.fixtures.selfref import SelfRefBase
 
 # -- schema / tool ------------------------------------------------------
 
@@ -38,6 +39,12 @@ def advanced_base() -> type[AdvancedBase]:
 def joined_base() -> type[JoinedBase]:
     """Base with joined-table inheritance (``Employee`` owns its own table)."""
     return JoinedBase
+
+
+@pytest.fixture(scope="session")
+def selfref_base() -> type[SelfRefBase]:
+    """Base with a self-referential table (``Node.parent_id -> nodes.id``)."""
+    return SelfRefBase
 
 
 @pytest.fixture(scope="session")

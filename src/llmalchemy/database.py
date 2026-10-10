@@ -96,11 +96,62 @@ def _parse_temporal(table: Table, rows: list[dict]) -> list[dict]:
     ]
 
 
+def _self_reference_parents(table: Table) -> list[str]:
+    """Columns in *table* that point at a single-column primary key of *table*.
+
+    Returns an empty list for composite primary keys, since ordering by a
+    composite self-reference is unsupported; none exist yet.
+    """
+    key = [column.name for column in table.primary_key.columns]
+    if len(key) != 1:
+        return []
+    return [
+        foreign_key.parent.name
+        for foreign_key in table.foreign_keys
+        if foreign_key.column.table is table and foreign_key.column.name == key[0]
+    ]
+
+
+def _parent_placed(row: dict, parents: list[str], known: set, placed: set) -> bool:
+    """True when every parent *row* points at is already inserted."""
+    return all(
+        row[name] is None or row[name] not in known or row[name] in placed for name in parents
+    )
+
+
+def _parents_first(table: Table, rows: list[dict]) -> list[dict]:
+    """Order *rows* so a self-referential FK target is inserted before its children.
+
+    SQLite enforces foreign keys row by row, even inside one multi-row
+    ``INSERT``, so a self-referencing table (a code tree, a group tree) cannot
+    be loaded in arbitrary snapshot order: the parent row has to arrive first.
+    Tables without a single-column self-reference keep their given order.
+    """
+    parents = _self_reference_parents(table)
+    if not parents:
+        return rows
+    key_name = next(column.name for column in table.primary_key.columns)
+    known = {row[key_name] for row in rows}
+    placed: set = set()
+    ordered: list[dict] = []
+    pending = list(rows)
+    # ponytail: O(n²) rescan, fine for one project snapshot; build the graph if a
+    # table ever holds thousands of self-referencing rows.
+    while pending:
+        ready = [row for row in pending if _parent_placed(row, parents, known, placed)]
+        if not ready:
+            return ordered + pending  # cycle: let the FK check report it
+        placed.update(row[key_name] for row in ready)
+        ordered.extend(ready)
+        pending = [row for row in pending if row[key_name] not in placed]
+    return ordered
+
+
 def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Session:
     """Unpack a JSON-serialised database state into an SQLAlchemy session.
 
     Creates an in-memory SQLite database, issues ``Base.metadata.create_all``,
-    and populates every table from *data*.
+    and populates every table from *data*, parents before children.
 
     Args:
         data: Mapping of ``{table_name: [row_dict, ...]}``.
@@ -115,7 +166,8 @@ def deserialize(data: dict[str, list[dict]], base: type[DeclarativeBase]) -> Ses
         for table in base.metadata.sorted_tables:
             rows = data.get(table.name)
             if rows:
-                session.execute(insert(table), _parse_temporal(table, rows))
+                ordered = _parents_first(table, rows)
+                session.execute(insert(table), _parse_temporal(table, ordered))
         session.commit()
     except Exception:
         # A partially-populated session must not be left to the garbage

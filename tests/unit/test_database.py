@@ -110,6 +110,26 @@ def test_deserialize_ignores_unknown_tables(base):
     assert _snapshot(session, base) == {"authors": [], "books": []}
 
 
+def test_deserialize_loads_tree_listed_children_first(selfref_base):
+    """A self-referential table whose snapshot lists a child before its parent loads."""
+    data = {
+        "nodes": [
+            {"id": 3, "parent_id": 2, "name": "leaf"},
+            {"id": 2, "parent_id": 1, "name": "branch"},
+            {"id": 1, "parent_id": None, "name": "root"},
+        ]
+    }
+
+    session = deserialize(data=data, base=selfref_base)
+
+    restored = _snapshot(session, selfref_base)["nodes"]
+    assert sorted(restored, key=lambda row: row["id"]) == [
+        {"id": 1, "parent_id": None, "name": "root"},
+        {"id": 2, "parent_id": 1, "name": "branch"},
+        {"id": 3, "parent_id": 2, "name": "leaf"},
+    ]
+
+
 def test_serialize_empty_session(base, session):
     assert _snapshot(session, base) == {"authors": [], "books": []}
 
