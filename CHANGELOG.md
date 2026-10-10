@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v3.1.1 (2026-10-10)
+
+### Bug Fixes
+
+- **database**: Insert self-referential parents before children on deserialize
+  ([`e65d809`](https://github.com/nachollorca/llmalchemy/commit/e65d80951d88e479aab4135a5f965bde8b71a011))
+
+
 ## v3.1.0 (2026-10-08)
 
 ### Bug Fixes
