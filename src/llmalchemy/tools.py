@@ -61,18 +61,20 @@ def make_disclose_fn(tools: list[Tool]) -> Callable:
     """
     lookup = {t.name: t.full_description for t in tools}
 
-    def disclose(name: str) -> str:
+    def disclose(name: str | Callable) -> str:
         """Reveal the full signature and docstring of a tool.
 
         Args:
-            name: The tool name to look up.
+            name: The tool name (or the tool function itself) to look up.
 
         Returns:
             The full description string, or an error message if not found.
         """
-        if name in lookup:
-            return lookup[name]
+        # model may pass the tool function itself rather than its name
+        key: str = name if isinstance(name, str) else getattr(name, "__name__", "")
+        if key in lookup:
+            return lookup[key]
         available = ", ".join(lookup) or "(none)"
-        return f"Unknown tool: {name!r}. Available tools: {available}"
+        return f"Unknown tool: {key!r}. Available tools: {available}"
 
     return disclose
