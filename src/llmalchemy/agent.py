@@ -180,7 +180,7 @@ def run(
     prompt_template: str | Path | None = None,
     output_extensions: type[BaseModel] | None = None,
     referenceable_tables: list[str] | None = None,
-    system_prompt_extension: str | None = None,
+    prompt_extension: str | None = None,
 ) -> Iterator[Event]:
     """Execute the agentic loop.
 
@@ -204,7 +204,7 @@ def run(
         referenceable_tables: Schema table names the agent may cite inline in its
             messages, e.g. ``[authors:1]``. Defaults to ``None`` (disabled);
             unknown names raise ``ValueError``.
-        system_prompt_extension: Free text appended verbatim at the very end of
+        prompt_extension: Free text appended verbatim at the very end of
             the system instruction, after the default template. Defaults to
             ``None`` (nothing appended).
 
@@ -223,7 +223,7 @@ def run(
             prompt_template,
             output_extensions,
             referenceable_tables,
-            system_prompt_extension,
+            prompt_extension,
         )
 
 
@@ -238,7 +238,7 @@ def _run(
     prompt_template: str | Path | None,
     output_extensions: type[BaseModel] | None,
     referenceable_tables: list[str] | None = None,
-    system_prompt_extension: str | None = None,
+    prompt_extension: str | None = None,
 ) -> Iterator[Event]:
     """Agentic loop body (see :func:`run`)."""
     # Initialize everything
@@ -247,7 +247,7 @@ def _run(
     output_schema = _build_output_schema(output_extensions)
     namespace = _init_namespace(session, base, tools)
     system_instruction = render(
-        base, tools, prompt_template, allowed_imports, referenceable_tables, system_prompt_extension
+        base, tools, prompt_template, allowed_imports, referenceable_tables, prompt_extension
     )
     yield SystemInstructionEvent(system_instruction)
     before = serialize(session, base)
