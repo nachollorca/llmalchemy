@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v3.1.2 (2026-10-14)
+
+### Bug Fixes
+
+- **tools**: Accept tool function in disclose
+  ([`811bed6`](https://github.com/nachollorca/llmalchemy/commit/811bed68993ec43a697d573c5f00555dc3559e1d))
+
+
 ## v3.1.1 (2026-10-10)
 
 ### Bug Fixes
