@@ -67,3 +67,9 @@ def test_disclose_with_no_tools():
 def test_catalog_tool_fixture_is_a_tool(catalog_tool):
     assert isinstance(catalog_tool, Tool)
     assert catalog_tool.name == "get_author_catalog"
+
+
+def test_disclose_accepts_function_object():
+    t = tool(_with_doc)
+    disclose = make_disclose_fn([t])
+    assert disclose(_with_doc) == t.full_description
