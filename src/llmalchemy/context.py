@@ -87,7 +87,7 @@ def render(
     template: str | Path | None = None,
     allowed_imports: list[str] | None = None,
     referenceable_tables: list[str] | None = None,
-    system_prompt_extension: str | None = None,
+    prompt_extension: str | None = None,
 ) -> str:
     """Build the system instruction for the LM with all context parts.
 
@@ -100,7 +100,7 @@ def render(
             list means imports are forbidden.
         referenceable_tables: Schema table names the agent may cite inline,
             e.g. ``[authors:1]``. ``None`` means citations are disabled.
-        system_prompt_extension: Free text appended verbatim at the very end of
+        prompt_extension: Free text appended verbatim at the very end of
             the system instruction. ``None`` appends nothing.
     """
     if template is None:
@@ -116,6 +116,6 @@ def render(
         IMPORTS=_render_imports(allowed_imports or []),
         REFERENCES=_render_references(base, referenceable_tables),
     )
-    if system_prompt_extension:
-        return f"{instruction.rstrip()}\n\n{system_prompt_extension}"
+    if prompt_extension:
+        return f"{instruction.rstrip()}\n\n{prompt_extension}"
     return instruction

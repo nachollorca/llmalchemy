@@ -196,7 +196,7 @@ for event in run(
     messages=messages,
     base=Base,
     model=model,
-    system_prompt_extension="Always answer in Spanish and cite every row you touch.",
+    prompt_extension="Always answer in Spanish and cite every row you touch.",
 ):
     print(event)
 ```

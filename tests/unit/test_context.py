@@ -70,7 +70,7 @@ def test_render_references_lists_allowed_tables(base):
 
 
 def test_render_appends_system_prompt_extension_at_the_end(base):
-    out = render(base=base, tools=[], system_prompt_extension="Always answer in Spanish.")
+    out = render(base=base, tools=[], prompt_extension="Always answer in Spanish.")
     assert out.rstrip().endswith("Always answer in Spanish.")
 
 
