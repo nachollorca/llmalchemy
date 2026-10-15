@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v3.1.3 (2026-10-15)
+
+### Bug Fixes
+
+- **agent**: Make turn-taking protocol explicit
+  ([`db27853`](https://github.com/nachollorca/llmalchemy/commit/db2785344d74b8f6f3a8bff6a8f0c5a584edc9c9))
+
+### Continuous Integration
+
+- **verify**: Pin python version so CI builds (pyarrow has no wheel for 3.15)
+  ([`1ed7cb2`](https://github.com/nachollorca/llmalchemy/commit/1ed7cb2cd3a48e53f7d866348195ae3b853c6949))
+
+### Refactoring
+
+- **agent**: Renname system_prompt_extensions to prompt_extension
+  ([`fe193d0`](https://github.com/nachollorca/llmalchemy/commit/fe193d01c8baf79a1caadf4761d1c5ccc0c58b1b))
+
+
 ## v3.1.2 (2026-10-14)
 
 ### Bug Fixes
