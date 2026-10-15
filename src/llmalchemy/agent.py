@@ -42,8 +42,19 @@ def _run_span(model: str) -> AbstractContextManager[Any]:
 class Output(BaseModel):
     """Pydantic model to force the LM structured output."""
 
-    message: str = Field(description="The response shown to the user.")
-    code: str = Field(default="", description="The optional code to run.")
+    message: str = Field(
+        description=(
+            "Shown to the user. With code: a brief note on what you are doing. "
+            "Without code: your final reply for this turn."
+        )
+    )
+    code: str = Field(
+        default="",
+        description=(
+            "Python to execute; its output comes back to you, not to the user. "
+            "Leave empty to end your turn and hand control back to the user."
+        ),
+    )
 
 
 class Signal(StrEnum):
@@ -270,7 +281,7 @@ def _run(
 
         yield SignalEvent(Signal.VALIDATION)
         if reason := validate(source=code, allowed_imports=allowed_imports):
-            message = UserMessage(f"Code rejected: {reason}")
+            message = UserMessage(f"<code_rejected>\n{reason}\n</code_rejected>")
             messages.append(message)
             yield MessageEvent(message)
             output = yield from _complete(
@@ -281,7 +292,7 @@ def _run(
 
         yield SignalEvent(Signal.EXECUTION)
         result = execute(source=code, namespace=namespace)
-        message = UserMessage(f"Execution result:\n\n```\n{result}\n```")
+        message = UserMessage(f"<execution_result>\n{result}\n</execution_result>")
         messages.append(message)
         yield MessageEvent(message)
         output = yield from _complete(

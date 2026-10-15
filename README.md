@@ -73,7 +73,7 @@ SignalEvent(signal=<Signal.COMPLETION: 'COMPLETION'>)
 MessageEvent(message=AssistantMessage(message="I'll add the authors and their books.", code="a1 = Author(name='J.R.R. Tolkien')\na2 = Author(name='Dhalia de la Cerda')\nsession.add_all([a1, a2])\nsession.flush()\nsession.add_all([\n    Book(title='The Hobbit', author_id=a1.id),\n    Book(title='The Lord of the Rings', author_id=a1.id),\n    Book(title='Desde los zulos', author_id=a2.id),\n    Book(title='Perras de reserva', author_id=a2.id),\n])\nsession.commit()\nprint('ok')"))
 SignalEvent(signal=<Signal.VALIDATION: 'VALIDATION'>)
 SignalEvent(signal=<Signal.EXECUTION: 'EXECUTION'>)
-MessageEvent(message=UserMessage(content='Execution result:\nok\n'))
+MessageEvent(message=UserMessage(content='<execution_result>\nok\n</execution_result>'))
 SignalEvent(signal=<Signal.COMPLETION: 'COMPLETION'>)
 MessageEvent(message=AssistantMessage(message='Done — added Tolkien and Dhalia de la Cerda with two books each.', code=''))
 DatabaseChangesEvent(changes={'authors': TableChanges(added=[{'id': 1, 'name': 'J.R.R. Tolkien'}, {'id': 2, 'name': 'Dhalia de la Cerda'}], updated=[], deleted=[]), 'books': TableChanges(added=[{'id': 1, 'title': 'The Hobbit', 'author_id': 1}, ...], updated=[], deleted=[])})
@@ -109,11 +109,11 @@ Example output (abbreviated):
 SignalEvent(signal=<Signal.COMPLETION: 'COMPLETION'>)
 MessageEvent(message=AssistantMessage(message='Let me check the tool signature first.', code="disclose('get_author_catalog')"))
 SignalEvent(signal=<Signal.EXECUTION: 'EXECUTION'>)
-MessageEvent(message=UserMessage(content="Execution result:\nget_author_catalog(author: str, session: Session) -> list[str]\nList all book titles for the given author.\n"))
+MessageEvent(message=UserMessage(content="<execution_result>\nget_author_catalog(author: str, session: Session) -> list[str]\nList all book titles for the given author.\n</execution_result>"))
 SignalEvent(signal=<Signal.COMPLETION: 'COMPLETION'>)
 MessageEvent(message=AssistantMessage(message='', code="print(get_author_catalog('Dhalia de la Cerda', session))"))
 SignalEvent(signal=<Signal.EXECUTION: 'EXECUTION'>)
-MessageEvent(message=UserMessage(content="Execution result:\n['Desde los zulos', 'Perras de reserva']\n"))
+MessageEvent(message=UserMessage(content="<execution_result>\n['Desde los zulos', 'Perras de reserva']\n</execution_result>"))
 SignalEvent(signal=<Signal.COMPLETION: 'COMPLETION'>)
 MessageEvent(message=AssistantMessage(message="Dhalia de la Cerda's catalog: 'Desde los zulos' and 'Perras de reserva'.", code=''))
 ```
@@ -148,7 +148,7 @@ SignalEvent(signal=<Signal.COMPLETION: 'COMPLETION'>)
 MessageEvent(message=AssistantMessage(message='', code='import datetime\nprint(datetime.date.today().isoformat())'))
 SignalEvent(signal=<Signal.VALIDATION: 'VALIDATION'>)
 SignalEvent(signal=<Signal.EXECUTION: 'EXECUTION'>)
-MessageEvent(message=UserMessage(content='Execution result:\n2026-04-21\n'))
+MessageEvent(message=UserMessage(content='<execution_result>\n2026-04-21\n</execution_result>'))
 SignalEvent(signal=<Signal.COMPLETION: 'COMPLETION'>)
 MessageEvent(message=AssistantMessage(message='Today is 2026-04-21.', code=''))
 ```
@@ -156,7 +156,7 @@ MessageEvent(message=AssistantMessage(message='Today is 2026-04-21.', code=''))
 If the agent tries to import something not whitelisted, validation fails and it gets a second chance:
 
 ```text
-MessageEvent(message=UserMessage(content="Code rejected: Forbidden import: os"))
+MessageEvent(message=UserMessage(content="<code_rejected>\nForbidden import: os\n</code_rejected>"))
 ```
 
 </details>
@@ -270,10 +270,10 @@ flowchart TD
     MaxLoops -- yes --> Exceeded[signal: EXCEEDED] --> End
     MaxLoops -- no --> Validate[validate code]
     Validate --> Valid{valid?}
-    Valid -- no --> Reject[append 'Code rejected'<br/>user message]
+    Valid -- no --> Reject[append code_rejected<br/>user message]
     Reject --> Complete
     Valid -- yes --> Execute[execute code<br/>in namespace]
-    Execute --> Result[append 'Execution result'<br/>user message]
+    Execute --> Result[append execution_result<br/>user message]
     Result --> Complete
 ```
 

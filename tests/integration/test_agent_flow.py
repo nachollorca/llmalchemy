@@ -75,7 +75,9 @@ def test_rejected_code_feeds_back_reason(base, session, fake_llm):
     assert signals.count(Signal.EXECUTION) == 0
 
     rejection = next(
-        m for m in _messages(events) if isinstance(m, UserMessage) and "rejected" in m.content
+        m
+        for m in _messages(events)
+        if isinstance(m, UserMessage) and "<code_rejected>" in m.content
     )
     assert "Forbidden import" in rejection.content
 
@@ -91,7 +93,7 @@ def test_execution_error_is_reported_as_user_message(base, session, fake_llm):
     traceback_msg = next(
         m
         for m in _messages(events)
-        if isinstance(m, UserMessage) and "Execution result" in m.content
+        if isinstance(m, UserMessage) and "<execution_result>" in m.content
     )
     assert "RuntimeError" in traceback_msg.content
     assert "kaboom" in traceback_msg.content
@@ -134,7 +136,7 @@ def test_tool_is_callable_from_agent_code(base, session, catalog_tool, fake_llm)
     exec_result = next(
         m
         for m in _messages(events)
-        if isinstance(m, UserMessage) and "Execution result" in m.content
+        if isinstance(m, UserMessage) and "<execution_result>" in m.content
     )
     assert "B1" in exec_result.content
     assert "B2" in exec_result.content
