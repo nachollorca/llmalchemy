@@ -278,3 +278,16 @@ def test_unknown_referenceable_table_raises(base, session, fake_llm):
                 referenceable_tables=["nope"],
             )
         )
+
+
+def test_uncommitted_changes_are_discarded_at_end_of_run(base, session, author_cls, fake_llm):
+    fake = fake_llm()
+    fake.reply(code="session.add(Author(name='pending')); session.flush()")
+    fake.reply(code="session.add(Author(name='unflushed'))")
+    fake.reply(message="done")
+
+    messages: list[Message] = [UserMessage("add but never commit")]
+    events = list(run(session=session, messages=messages, base=base, model="fake"))
+
+    assert not any(isinstance(e, DatabaseChangesEvent) for e in events)
+    assert session.query(author_cls).count() == 0

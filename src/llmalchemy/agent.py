@@ -199,7 +199,8 @@ def run(
     The loop ends as soon as the assistant responds without code. Turn is returned to user.
 
     Args:
-        session: SQLAlchemy session the agent's code reads and writes.
+        session: SQLAlchemy session the agent's code reads and writes. Rolled back
+            when the run ends, so only committed changes survive it.
         messages: Conversation history; new messages are appended in place.
         base: SQLAlchemy declarative base that defines the db schema.
         model: Model identifier forwarded to ``complete()``.
@@ -300,6 +301,8 @@ def _run(
         )
         code = output.code
 
+    # Only committed work is saved (the prompt tells the agent so); discard the rest.
+    session.rollback()
     after = serialize(session, base)
     if before and after:
         changes = diff(before, after, base)
