@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v3.1.4 (2026-10-16)
+
+### Bug Fixes
+
+- **agent**: Rollback uncommitted work
+  ([`a43d942`](https://github.com/nachollorca/llmalchemy/commit/a43d942d4e436776fbc48a64543c475889329e14))
+
+- **prompt**: Be more explicit about how `disclose` works
+  ([`45ec450`](https://github.com/nachollorca/llmalchemy/commit/45ec450579cb85f3cd0d223316e747e3d53d37a5))
+
+
 ## v3.1.3 (2026-10-15)
 
 ### Bug Fixes
