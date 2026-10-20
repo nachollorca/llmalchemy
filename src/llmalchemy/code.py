@@ -7,6 +7,8 @@ https://github.com/huggingface/smolagents/blob/main/src/smolagents/local_python_
 import ast
 import contextlib
 import io
+import sys
+import time
 import traceback
 
 FORBIDDEN_BUILTINS = frozenset(
@@ -123,27 +125,51 @@ def validate(source: str, allowed_imports: list[str]) -> str:
     return reason
 
 
-def execute(source: str, namespace: dict) -> str:
+class _Timeout(BaseException):
+    """Deadline escape hatch; BaseException so the model's `except Exception` can't eat it."""
+
+
+def execute(source: str, namespace: dict, timeout: float = 30.0) -> str:
     """Execute *source* code requested by the Agent inside *namespace*.
 
-    Runs synchronously in the calling thread.  There is no timeout guard:
-    the model could theoretically generate an infinite loop that we cannot
-    catch at the AST validation level.
+    Runs synchronously in the calling thread so the caller's SQLAlchemy session keeps
+    its thread affinity. A ``sys.settrace`` line hook enforces a wall-clock deadline,
+    so the model's infinite loops are interrupted instead of hanging the caller.
 
     Args:
         source: Python/SQLAlchemy source code produced by the model.
         namespace: Dict of python symbols available during execution.
             **Mutated in-place** — new bindings created by the code
             persist in *namespace* after this call returns.
+        timeout: Wall-clock seconds before execution is abandoned.
 
     Returns:
         A string with stdout output, a traceback, or a status message.
     """
     buf = io.StringIO()
+    deadline = time.monotonic() + timeout
+
+    def trace(frame, event, arg):
+        # Raises before the next line runs; note CPython unsets the hook if a traced
+        # frame swallows this, which a bare `except:` still can.
+        if time.monotonic() > deadline:
+            raise _Timeout
+        return trace
+
+    # shortcut: the deadline only fires between Python bytecodes, so a blocking C
+    # call (time.sleep, sockets) still hangs; move to process isolation for a hard kill.
+    previous_trace = sys.gettrace()  # e.g. a coverage/debugger hook — restore it
+    sys.settrace(trace)
     try:
         compiled = compile(source, "<agent>", "exec")
         with contextlib.redirect_stdout(buf):
             exec(compiled, namespace)
+        if time.monotonic() > deadline:
+            raise _Timeout
         return buf.getvalue() or "Code executed successfully but produced no stdout."
+    except _Timeout:
+        return f"Execution timed out after {timeout}s."
     except Exception:
         return traceback.format_exc()
+    finally:
+        sys.settrace(previous_trace)

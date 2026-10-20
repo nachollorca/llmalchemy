@@ -74,3 +74,14 @@ def test_execute_returns_traceback_on_exception():
     assert "ValueError" in out
     assert "boom" in out
     assert "Traceback" in out
+
+
+def test_execute_times_out_on_infinite_loop():
+    out = execute(source="while True:\n    pass", namespace={}, timeout=0.2)
+    assert "timed out" in out.lower()
+
+
+def test_execute_timeout_is_not_swallowed_by_broad_except():
+    source = "while True:\n    try:\n        pass\n    except Exception:\n        pass"
+    out = execute(source=source, namespace={}, timeout=0.2)
+    assert "timed out" in out.lower()
