@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v3.2.1 (2026-10-20)
+
+### Bug Fixes
+
+- **tools**: Be explicit about prints and disclose
+  ([`3404b41`](https://github.com/nachollorca/llmalchemy/commit/3404b4111f077678ed5fa1289d27f69200e0041c))
+
+
 ## v3.2.0 (2026-10-20)
 
 ### Features
