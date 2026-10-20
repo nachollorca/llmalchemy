@@ -166,7 +166,10 @@ def execute(source: str, namespace: dict, timeout: float = 30.0) -> str:
             exec(compiled, namespace)
         if time.monotonic() > deadline:
             raise _Timeout
-        return buf.getvalue() or "Code executed successfully but produced no stdout."
+        return (
+            buf.getvalue()
+            or "Code executed successfully but produced no stdout. To see a value use print()."
+        )
     except _Timeout:
         return f"Execution timed out after {timeout}s."
     except Exception:

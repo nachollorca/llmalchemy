@@ -107,7 +107,7 @@ Example output (abbreviated):
 
 ```text
 SignalEvent(signal=<Signal.COMPLETION: 'COMPLETION'>)
-MessageEvent(message=AssistantMessage(message='Let me check the tool signature first.', code="disclose('get_author_catalog')"))
+MessageEvent(message=AssistantMessage(message='Let me check the tool signature first.', code="print(disclose('get_author_catalog'))"))
 SignalEvent(signal=<Signal.EXECUTION: 'EXECUTION'>)
 MessageEvent(message=UserMessage(content="<execution_result>\nget_author_catalog(author: str, session: Session) -> list[str]\nList all book titles for the given author.\n</execution_result>"))
 SignalEvent(signal=<Signal.COMPLETION: 'COMPLETION'>)
@@ -119,10 +119,11 @@ MessageEvent(message=AssistantMessage(message="Dhalia de la Cerda's catalog: 'De
 ```
 
 Only the tool name and first docstring line are shown to the agent up-front.
-The agent calls `disclose("get_author_catalog")` to inspect the full signature on demand.
+The agent calls `print(disclose("get_author_catalog"))` to inspect the full signature on demand.
 
-What a tool prints stays in the conversation for later turns. Print a compact summary (counts, ids, the decisive result),
-return the full data, and document both in the docstring, which is what `disclose` shows.
+Tools return data and never print. Whatever the agent prints stays in the conversation for later turns,
+so it should print a compact summary (counts, ids, the decisive result) and keep the full data in the
+return value. Document that return value in the docstring, which is what `disclose` shows.
 </details>
 
 <details>
