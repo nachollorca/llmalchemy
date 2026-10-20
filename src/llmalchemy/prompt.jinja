@@ -23,6 +23,6 @@ Your namespace is pre-loaded with `session` and every class and association tabl
 # Available Tools
 The tools below (pre-built python functions) are also loaded in the namespace.
 You can use them at your discretion.
-Only the first docstring line is shown in this list: always use `print(disclose(name))` to discover a tool's full signature before calling it for the first time.
+Only the first docstring line is shown in this list. Tool return values reach you only through stdout: a bare call prints nothing. Use `print(disclose(name))` to discover a tool's full signature before calling it for the first time, and `print(tool(...))` to inspect its result.
 {{ TOOLS }}
 {% endif %}
