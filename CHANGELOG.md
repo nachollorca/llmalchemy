@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v3.2.0 (2026-10-20)
+
+### Features
+
+- **code**: Wait code exec for only 30s
+  ([`0cff8b2`](https://github.com/nachollorca/llmalchemy/commit/0cff8b2b4db39f7f60a9578c8c1ad66afb6d1d2e))
+
+
 ## v3.1.4 (2026-10-16)
 
 ### Bug Fixes
