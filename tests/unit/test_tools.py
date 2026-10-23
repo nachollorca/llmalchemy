@@ -20,7 +20,7 @@ def test_from_function_extracts_name_and_descriptions():
     assert t.name == "_with_doc"
     assert t.short_description == "Do a thing."
     assert "def _with_doc(a: int, b: str) -> str:" in t.full_description
-    assert "Extra details on a second line." in t.full_description
+    assert "    Extra details on a second line." in t.full_description
     assert t.fn is _with_doc
 
 
