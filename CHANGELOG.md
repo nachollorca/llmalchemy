@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v3.3.0 (2026-10-27)
+
+### Bug Fixes
+
+- **tools**: Keep docstring indentation in full_description
+  ([`050a7c4`](https://github.com/nachollorca/llmalchemy/commit/050a7c40f34d81be50af0a722aa7e9f41706d739))
+
+### Features
+
+- **agent**: Allow passing the code execution timeout to run()
+  ([`de3a9d2`](https://github.com/nachollorca/llmalchemy/commit/de3a9d26129069090b49d4155fc4998333ef40e3))
+
+### Refactoring
+
+- **code**: Keep the default execution timeout in execute() only
+  ([`0f38c01`](https://github.com/nachollorca/llmalchemy/commit/0f38c0150b8c421f83b12279eea10fb939acf47d))
+
+
 ## v3.2.1 (2026-10-20)
 
 ### Bug Fixes
