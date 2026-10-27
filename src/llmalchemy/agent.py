@@ -192,7 +192,7 @@ def run(
     output_extensions: type[BaseModel] | None = None,
     referenceable_tables: list[str] | None = None,
     prompt_extension: str | None = None,
-    timeout: float = 30.0,
+    timeout: float | None = None,
 ) -> Iterator[Event]:
     """Execute the agentic loop.
 
@@ -255,7 +255,7 @@ def _run(
     output_extensions: type[BaseModel] | None,
     referenceable_tables: list[str] | None = None,
     prompt_extension: str | None = None,
-    timeout: float = 30.0,
+    timeout: float | None = None,
 ) -> Iterator[Event]:
     """Agentic loop body (see :func:`run`)."""
     # Initialize everything
