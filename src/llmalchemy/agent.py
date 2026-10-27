@@ -192,6 +192,7 @@ def run(
     output_extensions: type[BaseModel] | None = None,
     referenceable_tables: list[str] | None = None,
     prompt_extension: str | None = None,
+    timeout: float | None = None,
 ) -> Iterator[Event]:
     """Execute the agentic loop.
 
@@ -219,6 +220,8 @@ def run(
         prompt_extension: Free text appended verbatim at the very end of
             the system instruction, after the default template. Defaults to
             ``None`` (nothing appended).
+        timeout: Wall-clock seconds each generated code block may run before
+            it is abandoned.
 
     Yields:
         ``Event``: system instruction, loop signals, and conversation messages.
@@ -236,6 +239,7 @@ def run(
             output_extensions,
             referenceable_tables,
             prompt_extension,
+            timeout,
         )
 
 
@@ -251,6 +255,7 @@ def _run(
     output_extensions: type[BaseModel] | None,
     referenceable_tables: list[str] | None = None,
     prompt_extension: str | None = None,
+    timeout: float | None = None,
 ) -> Iterator[Event]:
     """Agentic loop body (see :func:`run`)."""
     # Initialize everything
@@ -292,7 +297,7 @@ def _run(
             continue
 
         yield SignalEvent(Signal.EXECUTION)
-        result = execute(source=code, namespace=namespace)
+        result = execute(source=code, namespace=namespace, timeout=timeout)
         message = UserMessage(f"<execution_result>\n{result}\n</execution_result>")
         messages.append(message)
         yield MessageEvent(message)

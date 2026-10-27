@@ -129,7 +129,7 @@ class _Timeout(BaseException):
     """Deadline escape hatch; BaseException so the model's `except Exception` can't eat it."""
 
 
-def execute(source: str, namespace: dict, timeout: float = 30.0) -> str:
+def execute(source: str, namespace: dict, timeout: float | None = None) -> str:
     """Execute *source* code requested by the Agent inside *namespace*.
 
     Runs synchronously in the calling thread so the caller's SQLAlchemy session keeps
@@ -141,11 +141,13 @@ def execute(source: str, namespace: dict, timeout: float = 30.0) -> str:
         namespace: Dict of python symbols available during execution.
             **Mutated in-place** — new bindings created by the code
             persist in *namespace* after this call returns.
-        timeout: Wall-clock seconds before execution is abandoned.
+        timeout: Wall-clock seconds before execution is abandoned. Defaults to
+            ``30.0``.
 
     Returns:
         A string with stdout output, a traceback, or a status message.
     """
+    timeout = 30.0 if timeout is None else timeout
     buf = io.StringIO()
     deadline = time.monotonic() + timeout
 
