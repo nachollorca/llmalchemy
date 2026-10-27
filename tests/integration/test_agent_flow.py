@@ -291,3 +291,15 @@ def test_uncommitted_changes_are_discarded_at_end_of_run(base, session, author_c
 
     assert not any(isinstance(e, DatabaseChangesEvent) for e in events)
     assert session.query(author_cls).count() == 0
+
+
+def test_timeout_is_forwarded_to_execution(base, session, fake_llm):
+    fake = fake_llm()
+    fake.reply(code="while True:\n    pass")
+    fake.reply(message="gave up")
+
+    messages: list[Message] = [UserMessage("spin")]
+    events = list(run(session=session, messages=messages, base=base, model="fake", timeout=0.1))
+
+    results = [m.content for m in _messages(events) if isinstance(m, UserMessage)]
+    assert any("timed out after 0.1s" in content for content in results)
