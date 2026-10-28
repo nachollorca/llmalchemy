@@ -1,6 +1,8 @@
 """Tests for the tool wrapper, decorator and disclose closure."""
 
-from llmalchemy.tools import Tool, make_disclose_fn, tool
+import pytest
+
+from llmalchemy.tools import Tool, Toolset, flatten_toolsets, make_disclose_fn, tool
 
 
 def _with_doc(a: int, b: str) -> str:
@@ -87,3 +89,24 @@ def test_disclose_accepts_function_object():
     t = tool(_with_doc)
     disclose = make_disclose_fn([t])
     assert disclose(_with_doc) == t.full_description
+
+
+def test_flatten_expands_toolsets_in_order():
+    a, b = tool(_with_doc), tool(_multi_line_doc)
+    c = tool(_no_doc)
+    group = Toolset(name="Docs", description="Document tools.", tools=(a, b))
+    assert flatten_toolsets([c, group]) == [c, a, b]
+    assert flatten_toolsets([]) == []
+
+
+def test_flatten_rejects_duplicate_tool():
+    a = tool(_with_doc)
+    group = Toolset(name="Docs", description="Document tools.", tools=(a,))
+    with pytest.raises(ValueError, match="more than once"):
+        flatten_toolsets([a, group])
+
+
+def test_flatten_rejects_empty_toolset():
+    group = Toolset(name="Docs", description="Document tools.", tools=())
+    with pytest.raises(ValueError, match="has no tools"):
+        flatten_toolsets([group])

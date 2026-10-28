@@ -1,7 +1,7 @@
 """Logic to expose functions to the model."""
 
 import inspect
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -41,9 +41,44 @@ class Tool:
         return cls(fn=fn, name=name, short_description=short, full_description=full)
 
 
+@dataclass(frozen=True)
+class Toolset:
+    """A named group of related tools, described for the agent.
+
+    Attributes:
+        name: Group name, shown in bold in the prompt.
+        description: One paragraph saying what the group is for.
+        tools: The tools in the group, in the order the agent should read them.
+    """
+
+    name: str
+    description: str
+    tools: tuple[Tool, ...]
+
+
 def tool(fn: Any) -> Tool:
     """Decorator that turns a function into a ``Tool``."""
     return Tool.from_function(fn)
+
+
+def flatten_toolsets(tools: Sequence[Tool | Toolset]) -> list[Tool]:
+    """Expand toolsets into a single tool list, keeping declaration order.
+
+    Raises:
+        ValueError: If a tool is listed twice, or a toolset has no tools.
+    """
+    flat: list[Tool] = []
+    seen: set[str] = set()
+    for item in tools:
+        group = item.tools if isinstance(item, Toolset) else (item,)
+        if not group:
+            raise ValueError(f"Toolset {item.name!r} has no tools.")
+        for t in group:
+            if t.name in seen:
+                raise ValueError(f"Tool {t.name!r} is listed more than once.")
+            seen.add(t.name)
+            flat.append(t)
+    return flat
 
 
 def make_disclose_fn(tools: list[Tool]) -> Callable:

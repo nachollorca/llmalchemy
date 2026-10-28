@@ -4,12 +4,13 @@ import inspect
 import re
 import sys
 import warnings
+from collections.abc import Sequence
 from pathlib import Path
 
 from lmdk import render_template
 from sqlalchemy.orm import DeclarativeBase
 
-from .tools import Tool
+from .tools import Tool, Toolset
 
 _TEMPLATE_PATH = Path(__file__).parent / "prompt.jinja"
 
@@ -29,11 +30,21 @@ def _render_schema_source(base: type[DeclarativeBase]) -> str:
     return inspect.getsource(sys.modules[base.__module__])
 
 
-def _render_tools_summary(tools: list[Tool]) -> str:
-    """Render name + first docstring paragraph for each tool (empty string if no tools)."""
-    if not tools:
-        return ""
-    return "\n".join(f"- `{t.name}`: {t.short_description}" for t in tools)
+def _render_tools_summary(tools: Sequence[Tool | Toolset]) -> str:
+    """Render one bullet per tool, toolset members indented under a bold description.
+
+    Loose tools keep the plain ``- `name`: description`` form. Returns an empty
+    string when there is nothing to render.
+    """
+    lines: list[str] = []
+    for item in tools:
+        if isinstance(item, Toolset):
+            head = f"- **{item.name}**" + (f": {item.description}" if item.description else "")
+            lines.append(head)
+            lines.extend(f"  - `{t.name}`: {t.short_description}".rstrip() for t in item.tools)
+        else:
+            lines.append(f"- `{item.name}`: {item.short_description}".rstrip())
+    return "\n".join(lines)
 
 
 def _render_imports(allowed_imports: list[str]) -> str:
@@ -83,7 +94,7 @@ def _check_markers(source: str) -> None:
 
 def render(
     base: type[DeclarativeBase],
-    tools: list[Tool],
+    tools: Sequence[Tool | Toolset],
     template: str | Path | None = None,
     allowed_imports: list[str] | None = None,
     referenceable_tables: list[str] | None = None,
