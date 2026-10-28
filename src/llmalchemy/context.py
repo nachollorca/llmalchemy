@@ -30,7 +30,7 @@ def _render_schema_source(base: type[DeclarativeBase]) -> str:
 
 
 def _render_tools_summary(tools: list[Tool]) -> str:
-    """Render name + one-liner for each tool (empty string if no tools)."""
+    """Render name + first docstring paragraph for each tool (empty string if no tools)."""
     if not tools:
         return ""
     return "\n".join(f"- `{t.name}`: {t.short_description}" for t in tools)
