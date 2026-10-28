@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v3.4.0 (2026-10-28)
+
+### Features
+
+- **tools**: Show the first docstring paragraph in the tools summary
+  ([`11392c1`](https://github.com/nachollorca/llmalchemy/commit/11392c11fea83a53bc37f1aa84c1902cda9baa53))
+
+
 ## v3.3.0 (2026-10-27)
 
 ### Bug Fixes
