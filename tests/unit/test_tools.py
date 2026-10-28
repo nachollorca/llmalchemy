@@ -11,6 +11,15 @@ def _with_doc(a: int, b: str) -> str:
     return f"{a}{b}"
 
 
+def _multi_line_doc() -> None:
+    """Do a thing that needs a long
+    wrapped first paragraph.
+
+    Args:
+        nothing: never shown up-front.
+    """
+
+
 def _no_doc(x):
     return x
 
@@ -22,6 +31,11 @@ def test_from_function_extracts_name_and_descriptions():
     assert "def _with_doc(a: int, b: str) -> str:" in t.full_description
     assert "    Extra details on a second line." in t.full_description
     assert t.fn is _with_doc
+
+
+def test_short_description_is_first_paragraph_collapsed():
+    t = Tool.from_function(_multi_line_doc)
+    assert t.short_description == "Do a thing that needs a long wrapped first paragraph."
 
 
 def test_from_function_without_docstring():

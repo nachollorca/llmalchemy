@@ -20,7 +20,7 @@ class Tool:
     Attributes:
         fn: The original callable.
         name: Function name (used as the namespace key).
-        short_description: First line of the docstring.
+        short_description: First docstring paragraph, collapsed onto one line.
         full_description: Full signature and docstring for discovery.
     """
 
@@ -34,7 +34,7 @@ class Tool:
         """Build a ``Tool`` from a plain function."""
         name = getattr(fn, "__name__", "unknown")
         doc = inspect.cleandoc(getattr(fn, "__doc__", "") or "")
-        short = doc.split("\n", 1)[0] if doc else ""
+        short = " ".join(doc.split("\n\n", 1)[0].split()) if doc else ""
         sig = inspect.signature(fn)
         body = "\n    ".join(doc.split("\n")) if doc else ""
         full = f'def {name}{sig}:\n    """{body}"""' if doc else f"def {name}{sig}:"

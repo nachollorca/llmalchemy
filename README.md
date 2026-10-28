@@ -118,7 +118,7 @@ SignalEvent(signal=<Signal.COMPLETION: 'COMPLETION'>)
 MessageEvent(message=AssistantMessage(message="Dhalia de la Cerda's catalog: 'Desde los zulos' and 'Perras de reserva'.", code=''))
 ```
 
-Only the tool name and first docstring line are shown to the agent up-front.
+Only the tool name and first docstring paragraph are shown to the agent up-front.
 The agent calls `print(disclose("get_author_catalog"))` to inspect the full signature on demand.
 
 Tools return data and never print. Whatever the agent prints stays in the conversation for later turns,
