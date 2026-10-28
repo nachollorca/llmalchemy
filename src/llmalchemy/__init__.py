@@ -1,6 +1,6 @@
 """Publicly exposed symbols."""
 
 from .agent import run
-from .tools import tool
+from .tools import Toolset, tool
 
-__all__ = ["run", "tool"]
+__all__ = ["Toolset", "run", "tool"]

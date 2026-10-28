@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from llmalchemy.context import LLMAlchemyPromptWarning, render
+from llmalchemy.tools import Tool, Toolset
 
 _MINIMAL_TEMPLATE = "SCHEMA:\n{{ SCHEMA }}\nTOOLS:\n{{ TOOLS }}\nIMPORTS:\n{{ IMPORTS }}\n"
 
@@ -98,3 +99,25 @@ def test_render_schema_shows_whole_module_including_junctions(advanced_base):
     assert 'Column("employee_id", ForeignKey("employees.id")' in out
     # Inherited classes are shown too.
     assert "class Manager(Employee)" in out
+
+
+def test_render_groups_toolset_members_under_bold_description(base, catalog_tool):
+    group = Toolset(
+        name="Database helpers",
+        description="Frequent multi-step reads.",
+        tools=(catalog_tool,),
+    )
+    out = render(base=base, tools=[group], template=_MINIMAL_TEMPLATE)
+
+    assert "- **Database helpers**: Frequent multi-step reads.\n" in out
+    assert "  - `get_author_catalog`:" in out
+
+
+def test_render_keeps_loose_tools_flat_alongside_toolsets(base):
+    def loose() -> None:
+        """A tool outside any group."""
+
+    group = Toolset(name="Group", description="", tools=(Tool.from_function(loose),))
+    out = render(base=base, tools=[Tool.from_function(loose), group], template=_MINIMAL_TEMPLATE)
+
+    assert "- `loose`: A tool outside any group.\n- **Group**\n  - `loose`:" in out

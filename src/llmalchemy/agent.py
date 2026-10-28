@@ -1,6 +1,6 @@
 """Contains the agentic loop and related utils."""
 
-from collections.abc import Generator, Iterator
+from collections.abc import Generator, Iterator, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import asdict, dataclass
 from enum import StrEnum
@@ -20,7 +20,7 @@ from .database import (
     mapped_classes,
     serialize,
 )
-from .tools import Tool, make_disclose_fn
+from .tools import Tool, Toolset, flatten_toolsets, make_disclose_fn
 
 MAX_LOOPS = 20
 
@@ -186,7 +186,7 @@ def run(
     base: type[DeclarativeBase],
     model: str,
     thinking_effort: ThinkingEffort = "high",
-    tools: list[Tool] | None = None,
+    tools: Sequence[Tool | Toolset] | None = None,
     allowed_imports: list[str] | None = None,
     prompt_template: str | Path | None = None,
     output_extensions: type[BaseModel] | None = None,
@@ -205,7 +205,9 @@ def run(
         messages: Conversation history; new messages are appended in place.
         base: SQLAlchemy declarative base that defines the db schema.
         model: Model identifier forwarded to ``complete()``.
-        tools: User-provided tools the agent can call in generated code.
+        tools: User-provided tools the agent can call in generated code. Wrap
+            related tools in a ``Toolset`` to group them in the prompt under a
+            bold description.
         allowed_imports: Any vanilla module or third-party package that the agent can use.
             Defaults to ``["sqlalchemy"]``; pass ``[]`` to forbid all imports.
         output_extensions: Optional Pydantic model to force in the LM structured output.
@@ -249,7 +251,7 @@ def _run(
     base: type[DeclarativeBase],
     model: str,
     thinking_effort: ThinkingEffort,
-    tools: list[Tool] | None,
+    tools: Sequence[Tool | Toolset] | None,
     allowed_imports: list[str] | None,
     prompt_template: str | Path | None,
     output_extensions: type[BaseModel] | None,
@@ -259,12 +261,13 @@ def _run(
 ) -> Iterator[Event]:
     """Agentic loop body (see :func:`run`)."""
     # Initialize everything
-    tools = tools or []
+    groups = list(tools or [])
+    tools = flatten_toolsets(groups)
     allowed_imports = ["sqlalchemy"] if allowed_imports is None else allowed_imports
     output_schema = _build_output_schema(output_extensions)
     namespace = _init_namespace(session, base, tools)
     system_instruction = render(
-        base, tools, prompt_template, allowed_imports, referenceable_tables, prompt_extension
+        base, groups, prompt_template, allowed_imports, referenceable_tables, prompt_extension
     )
     yield SystemInstructionEvent(system_instruction)
     before = serialize(session, base)
