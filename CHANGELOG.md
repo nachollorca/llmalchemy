@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v3.5.0 (2026-10-28)
+
+### Features
+
+- **tools**: Group related tools into described toolsets
+  ([`539451d`](https://github.com/nachollorca/llmalchemy/commit/539451d0f4b07e00560cc64fe88c4cc64b7edb4a))
+
+
 ## v3.4.0 (2026-10-28)
 
 ### Features
